@@ -27,6 +27,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--fg);font-
 ::selection{background:var(--fg);color:var(--bg)}
 @media(max-width:600px){html,body{font-size:15px}.terminal{padding:10px 12px}}
 canvas.matrix-canvas{position:fixed;top:0;left:0;z-index:50;pointer-events:none}
+.term-img{margin:6px 0;line-height:0}.term-img svg{max-width:180px;width:100%;height:auto;color:var(--fg);filter:drop-shadow(0 0 6px var(--glowsm))}
 @keyframes konamiFlash{0%{filter:brightness(1)}50%{filter:brightness(3) saturate(2)}100%{filter:brightness(1)}}
 </style>
 </head>
@@ -827,6 +828,66 @@ const ADVENTURES = [
 ];
 
 // ═══════════════════════════════════════
+// ADVENTURE IMAGES
+// ═══════════════════════════════════════
+const IMGS={
+alarm:`<svg viewBox="0 0 120 80"><circle cx="60" cy="42" r="24" stroke="currentColor" fill="none" stroke-width="2"/><line x1="60" y1="42" x2="60" y2="26" stroke="currentColor" stroke-width="2"/><line x1="60" y1="42" x2="72" y2="42" stroke="currentColor" stroke-width="2"/><circle cx="40" cy="18" r="7" stroke="currentColor" fill="none" stroke-width="1.5"/><circle cx="80" cy="18" r="7" stroke="currentColor" fill="none" stroke-width="1.5"/><line x1="46" y1="18" x2="74" y2="18" stroke="currentColor" stroke-width="1.5"/><line x1="36" y1="22" x2="30" y2="14" stroke="currentColor" stroke-width="1.5"><animate attributeName="opacity" values="1;.3;1" dur=".4s" repeatCount="indefinite"/></line><line x1="84" y1="22" x2="90" y2="14" stroke="currentColor" stroke-width="1.5"><animate attributeName="opacity" values="1;.3;1" dur=".4s" repeatCount="indefinite"/></line><text x="60" y="78" text-anchor="middle" fill="currentColor" font-family="VT323,monospace" font-size="11">06:30</text></svg>`,
+sword:`<svg viewBox="0 0 120 80"><line x1="60" y1="8" x2="60" y2="52" stroke="currentColor" stroke-width="3"/><polygon points="56,8 60,0 64,8" fill="currentColor"/><line x1="46" y1="52" x2="74" y2="52" stroke="currentColor" stroke-width="3"/><line x1="60" y1="52" x2="60" y2="66" stroke="currentColor" stroke-width="4"/><line x1="54" y1="66" x2="66" y2="66" stroke="currentColor" stroke-width="2"/><text x="60" y="78" text-anchor="middle" fill="currentColor" font-family="VT323,monospace" font-size="10">IT'S A SWORD</text></svg>`,
+bjj:`<svg viewBox="0 0 120 80"><circle cx="42" cy="14" r="7" stroke="currentColor" fill="none" stroke-width="2"/><circle cx="78" cy="14" r="7" stroke="currentColor" fill="none" stroke-width="2"/><path d="M42 21 L42 40 L30 55 M42 40 L54 55 M42 28 L55 35 M78 21 L78 40 L66 55 M78 40 L90 55 M78 28 L65 35" stroke="currentColor" fill="none" stroke-width="2"/><text x="60" y="75" text-anchor="middle" fill="currentColor" font-family="VT323,monospace" font-size="10">TAP OR NAP</text></svg>`,
+laptop:`<svg viewBox="0 0 120 80"><rect x="25" y="8" width="70" height="46" rx="3" stroke="currentColor" fill="none" stroke-width="2"/><rect x="30" y="13" width="60" height="36" stroke="currentColor" fill="none" stroke-width="1" opacity=".3"/><circle cx="48" cy="28" r="3" fill="currentColor"><animate attributeName="r" values="3;2;3" dur="2s" repeatCount="indefinite"/></circle><circle cx="72" cy="28" r="3" fill="currentColor"><animate attributeName="r" values="3;2;3" dur="2s" repeatCount="indefinite"/></circle><path d="M46 38 Q60 44 74 38" stroke="currentColor" fill="none" stroke-width="1.5"/><line x1="20" y1="58" x2="100" y2="58" stroke="currentColor" stroke-width="2"/><rect x="35" y="58" width="50" height="4" stroke="currentColor" fill="none" stroke-width="1"/></svg>`,
+peek:`<svg viewBox="0 0 120 80"><rect x="15" y="30" width="90" height="45" rx="2" stroke="currentColor" fill="none" stroke-width="1.5" opacity=".4"/><line x1="15" y1="30" x2="105" y2="30" stroke="currentColor" stroke-width="2"/><circle cx="48" cy="22" r="5" fill="currentColor"><animate attributeName="cy" values="22;20;22" dur="3s" repeatCount="indefinite"/></circle><circle cx="72" cy="22" r="5" fill="currentColor"><animate attributeName="cy" values="22;20;22" dur="3s" repeatCount="indefinite"/></circle><text x="60" y="78" text-anchor="middle" fill="currentColor" font-family="VT323,monospace" font-size="10">ARE YOU AWAKE?</text></svg>`,
+trolley:`<svg viewBox="0 0 120 80"><path d="M20 15 L30 15 L45 55 L95 55 L100 30 L38 30" stroke="currentColor" fill="none" stroke-width="2"/><circle cx="52" cy="65" r="5" stroke="currentColor" fill="none" stroke-width="2"/><circle cx="88" cy="65" r="5" stroke="currentColor" fill="none" stroke-width="2"/><rect x="55" y="35" width="12" height="16" stroke="currentColor" fill="none" stroke-width="1" opacity=".5"/><rect x="72" y="38" width="12" height="13" stroke="currentColor" fill="none" stroke-width="1" opacity=".5"/></svg>`,
+grid:`<svg viewBox="0 0 120 80"><rect x="8" y="8" width="30" height="24" rx="2" stroke="currentColor" fill="none" stroke-width="1.5"/><rect x="45" y="8" width="30" height="24" rx="2" stroke="currentColor" fill="none" stroke-width="1.5"/><rect x="82" y="8" width="30" height="24" rx="2" stroke="currentColor" fill="none" stroke-width="1.5"/><rect x="8" y="40" width="30" height="24" rx="2" stroke="currentColor" fill="none" stroke-width="1.5"/><rect x="45" y="40" width="30" height="24" rx="2" stroke="currentColor" fill="none" stroke-width="1.5"/><rect x="82" y="40" width="30" height="24" rx="2" stroke="currentColor" fill="none" stroke-width="1.5"/><circle cx="23" cy="17" r="3" fill="currentColor" opacity=".5"/><circle cx="60" cy="17" r="3" fill="currentColor" opacity=".5"/><circle cx="97" cy="17" r="3" fill="currentColor" opacity=".5"/><circle cx="23" cy="49" r="3" fill="currentColor" opacity=".5"/><circle cx="60" cy="49" r="3" fill="currentColor" opacity=".3"/><text x="57" y="55" text-anchor="middle" fill="currentColor" font-family="VT323,monospace" font-size="8">YOU</text><line x1="82" y1="40" x2="112" y2="64" stroke="currentColor" stroke-width="1" opacity=".3"/><text x="97" y="78" text-anchor="middle" fill="currentColor" font-family="VT323,monospace" font-size="8">MUTED</text></svg>`,
+cape:`<svg viewBox="0 0 120 80"><circle cx="60" cy="16" r="8" stroke="currentColor" fill="none" stroke-width="2"/><line x1="60" y1="24" x2="60" y2="48" stroke="currentColor" stroke-width="2"/><line x1="60" y1="30" x2="45" y2="42" stroke="currentColor" stroke-width="2"/><line x1="60" y1="30" x2="75" y2="42" stroke="currentColor" stroke-width="2"/><line x1="60" y1="48" x2="48" y2="65" stroke="currentColor" stroke-width="2"/><line x1="60" y1="48" x2="72" y2="65" stroke="currentColor" stroke-width="2"/><path d="M50 24 Q30 40 35 62 L85 62 Q90 40 70 24" stroke="currentColor" fill="none" stroke-width="1.5" opacity=".6"><animate attributeName="opacity" values=".6;.3;.6" dur="2s" repeatCount="indefinite"/></path></svg>`,
+hearts:`<svg viewBox="0 0 120 80"><path d="M60 70 L30 40 Q20 20 40 20 Q55 20 60 35 Q65 20 80 20 Q100 20 90 40 Z" stroke="currentColor" fill="none" stroke-width="2"><animate attributeName="stroke-width" values="2;3;2" dur="1.5s" repeatCount="indefinite"/></path><circle cx="30" cy="10" r="1.5" fill="currentColor" opacity=".4"/><circle cx="95" cy="15" r="1" fill="currentColor" opacity=".3"/><circle cx="15" cy="55" r="1.5" fill="currentColor" opacity=".3"/><circle cx="105" cy="50" r="1" fill="currentColor" opacity=".4"/></svg>`,
+dumbbell:`<svg viewBox="0 0 120 80"><rect x="15" y="22" width="14" height="36" rx="2" stroke="currentColor" fill="none" stroke-width="2"/><rect x="91" y="22" width="14" height="36" rx="2" stroke="currentColor" fill="none" stroke-width="2"/><line x1="29" y1="40" x2="91" y2="40" stroke="currentColor" stroke-width="3"/><rect x="8" y="28" width="7" height="24" rx="1" stroke="currentColor" fill="none" stroke-width="1.5"/><rect x="105" y="28" width="7" height="24" rx="1" stroke="currentColor" fill="none" stroke-width="1.5"/><text x="60" y="75" text-anchor="middle" fill="currentColor" font-family="VT323,monospace" font-size="10">ONE MORE SET</text></svg>`,
+fire:`<svg viewBox="0 0 120 80"><rect x="30" y="50" width="60" height="6" rx="1" stroke="currentColor" fill="none" stroke-width="1.5"/><line x1="45" y1="50" x2="40" y2="58" stroke="currentColor" stroke-width="1.5"/><line x1="75" y1="50" x2="80" y2="58" stroke="currentColor" stroke-width="1.5"/><path d="M50 48 Q48 30 55 20 Q58 28 60 18 Q62 28 65 20 Q72 30 70 48" stroke="currentColor" fill="none" stroke-width="2"><animate attributeName="d" values="M50 48 Q48 30 55 20 Q58 28 60 18 Q62 28 65 20 Q72 30 70 48;M50 48 Q46 32 55 22 Q57 30 60 16 Q63 30 65 22 Q74 32 70 48;M50 48 Q48 30 55 20 Q58 28 60 18 Q62 28 65 20 Q72 30 70 48" dur="0.8s" repeatCount="indefinite"/></path><text x="60" y="76" text-anchor="middle" fill="currentColor" font-family="VT323,monospace" font-size="10">NOT A DRILL</text></svg>`,
+phone:`<svg viewBox="0 0 120 80"><rect x="40" y="5" width="40" height="70" rx="5" stroke="currentColor" fill="none" stroke-width="2"/><rect x="45" y="12" width="30" height="48" stroke="currentColor" fill="none" stroke-width="1" opacity=".3"/><circle cx="60" cy="68" r="3" stroke="currentColor" fill="none" stroke-width="1"/><circle cx="78" cy="8" r="8" fill="currentColor" opacity=".8"><animate attributeName="r" values="8;9;8" dur="1s" repeatCount="indefinite"/></circle><text x="78" y="12" text-anchor="middle" fill="var(--bg)" font-family="VT323,monospace" font-size="11" font-weight="bold">47</text></svg>`,
+robot:`<svg viewBox="0 0 120 80"><rect x="25" y="15" width="70" height="48" rx="3" stroke="currentColor" fill="none" stroke-width="2"/><rect x="30" y="20" width="60" height="38" stroke="currentColor" fill="none" stroke-width="1" opacity=".2"/><circle cx="47" cy="36" r="6" stroke="currentColor" fill="none" stroke-width="2"><animate attributeName="fill" values="none;currentColor;none" dur="3s" repeatCount="indefinite"/></circle><circle cx="73" cy="36" r="6" stroke="currentColor" fill="none" stroke-width="2"><animate attributeName="fill" values="none;currentColor;none" dur="3s" repeatCount="indefinite"/></circle><line x1="47" y1="50" x2="73" y2="50" stroke="currentColor" stroke-width="1.5"/><line x1="60" y1="6" x2="60" y2="15" stroke="currentColor" stroke-width="1.5"/><circle cx="60" cy="4" r="3" stroke="currentColor" fill="none" stroke-width="1.5"><animate attributeName="fill" values="none;currentColor;none" dur="1.5s" repeatCount="indefinite"/></circle></svg>`,
+spaghetti:`<svg viewBox="0 0 120 80"><rect x="35" y="40" width="50" height="35" rx="2" stroke="currentColor" fill="none" stroke-width="2"/><rect x="42" y="46" width="36" height="24" stroke="currentColor" fill="none" stroke-width="1" opacity=".2"/><path d="M50 40 Q45 25 55 15 Q60 22 58 10 Q65 18 70 12 Q68 28 75 20 Q72 35 70 40" stroke="currentColor" fill="none" stroke-width="1.5" opacity=".7"/><path d="M48 36 Q38 20 50 8 Q56 16 60 5 Q64 16 68 8 Q80 20 72 36" stroke="currentColor" fill="none" stroke-width="1.5"/><text x="60" y="78" text-anchor="middle" fill="currentColor" font-family="VT323,monospace" font-size="9">SPAGHETTI MODE</text></svg>`,
+money:`<svg viewBox="0 0 120 80"><text x="60" y="52" text-anchor="middle" fill="currentColor" font-family="VT323,monospace" font-size="50" opacity=".8">£</text><line x1="20" y1="65" x2="100" y2="65" stroke="currentColor" stroke-width="1" opacity=".3"/><line x1="20" y1="15" x2="100" y2="15" stroke="currentColor" stroke-width="1" opacity=".3"/><text x="60" y="76" text-anchor="middle" fill="currentColor" font-family="VT323,monospace" font-size="9">THE SPREADSHEET STARES BACK</text></svg>`,
+school:`<svg viewBox="0 0 120 80"><rect x="20" y="30" width="80" height="40" stroke="currentColor" fill="none" stroke-width="2"/><polygon points="60,8 20,30 100,30" stroke="currentColor" fill="none" stroke-width="2"/><rect x="50" y="48" width="20" height="22" stroke="currentColor" fill="none" stroke-width="1.5"/><rect x="28" y="38" width="12" height="12" stroke="currentColor" fill="none" stroke-width="1"/><rect x="80" y="38" width="12" height="12" stroke="currentColor" fill="none" stroke-width="1"/><circle cx="60" cy="20" r="4" fill="currentColor" opacity=".5"/></svg>`,
+tooth:`<svg viewBox="0 0 120 80"><path d="M45 15 Q40 15 38 25 Q36 40 42 55 Q45 65 48 55 Q52 42 55 55 Q58 68 62 55 Q65 42 68 55 Q72 65 75 55 Q82 40 80 25 Q78 15 72 15 Q65 15 60 22 Q55 15 45 15Z" stroke="currentColor" fill="none" stroke-width="2"/><text x="60" y="78" text-anchor="middle" fill="currentColor" font-family="VT323,monospace" font-size="9">FLOSS MORE</text></svg>`,
+bench:`<svg viewBox="0 0 120 80"><line x1="25" y1="45" x2="95" y2="45" stroke="currentColor" stroke-width="2"/><line x1="25" y1="50" x2="95" y2="50" stroke="currentColor" stroke-width="2"/><line x1="30" y1="45" x2="28" y2="65" stroke="currentColor" stroke-width="2"/><line x1="90" y1="45" x2="92" y2="65" stroke="currentColor" stroke-width="2"/><line x1="25" y1="30" x2="25" y2="45" stroke="currentColor" stroke-width="2"/><line x1="95" y1="30" x2="95" y2="45" stroke="currentColor" stroke-width="2"/><circle cx="100" cy="18" r="10" stroke="currentColor" fill="none" stroke-width="1.5" opacity=".5"/><line x1="100" y1="5" x2="100" y2="2" stroke="currentColor" stroke-width="1" opacity=".4"/><line x1="112" y1="18" x2="115" y2="18" stroke="currentColor" stroke-width="1" opacity=".4"/><line x1="106" y1="10" x2="109" y2="7" stroke="currentColor" stroke-width="1" opacity=".4"/></svg>`,
+boots:`<svg viewBox="0 0 120 80"><path d="M25 20 L25 55 L55 55 L55 45 L40 45 L40 20 Z" stroke="currentColor" fill="none" stroke-width="2"/><path d="M65 20 L65 55 L95 55 L95 45 L80 45 L80 20 Z" stroke="currentColor" fill="none" stroke-width="2"/><circle cx="32" cy="35" r="2" fill="currentColor" opacity=".4"/><circle cx="36" cy="28" r="1.5" fill="currentColor" opacity=".3"/><circle cx="72" cy="38" r="2" fill="currentColor" opacity=".4"/><circle cx="74" cy="30" r="1.5" fill="currentColor" opacity=".3"/><text x="60" y="75" text-anchor="middle" fill="currentColor" font-family="VT323,monospace" font-size="9">ALREADY MUDDY</text></svg>`,
+moon:`<svg viewBox="0 0 120 80"><path d="M55 12 Q35 20 35 40 Q35 60 55 68 Q40 58 40 40 Q40 22 55 12Z" fill="currentColor" opacity=".7"/><circle cx="80" cy="18" r="1.5" fill="currentColor" opacity=".5"/><circle cx="95" cy="30" r="1" fill="currentColor" opacity=".4"/><circle cx="70" cy="35" r="1" fill="currentColor" opacity=".3"/><circle cx="90" cy="50" r="1.5" fill="currentColor" opacity=".4"/><circle cx="100" cy="15" r="1" fill="currentColor" opacity=".3"/><circle cx="75" cy="55" r="1" fill="currentColor" opacity=".3"/><text x="60" y="78" text-anchor="middle" fill="currentColor" font-family="VT323,monospace" font-size="9">SYSTEM SHUTDOWN</text></svg>`,
+tea:`<svg viewBox="0 0 120 80"><rect x="35" y="25" width="40" height="35" rx="2" stroke="currentColor" fill="none" stroke-width="2"/><path d="M75 32 Q90 32 90 42 Q90 52 75 52" stroke="currentColor" fill="none" stroke-width="2"/><line x1="35" y1="62" x2="75" y2="62" stroke="currentColor" stroke-width="1.5"/><path d="M48 22 Q48 14 52 14" stroke="currentColor" fill="none" stroke-width="1.5" opacity=".5"><animate attributeName="opacity" values=".5;.2;.5" dur="2s" repeatCount="indefinite"/></path><path d="M56 20 Q56 10 60 10" stroke="currentColor" fill="none" stroke-width="1.5" opacity=".5"><animate attributeName="opacity" values=".3;.6;.3" dur="2s" repeatCount="indefinite"/></path><text x="60" y="78" text-anchor="middle" fill="currentColor" font-family="VT323,monospace" font-size="9">YORKSHIRE GOLD</text></svg>`
+};
+
+const ADV_IMGS={
+0:{start:'alarm',kitchen:'tea',end:'grid'},
+1:{start:'sword',gate:'school'},
+2:{start:'bjj',end:'bjj'},
+3:{start:'laptop',problem:'laptop',end:'laptop'},
+4:{start:'peek',breakfast:'tea'},
+5:{start:'trolley',checkout:'trolley'},
+6:{start:'grid',agenda:'grid'},
+7:{start:'cape',story:'cape',end:'moon'},
+8:{start:'hearts',restaurant:'hearts',film:'moon'},
+9:{start:'dumbbell',squat:'dumbbell'},
+10:{start:'fire',cook:'fire',serve:'fire'},
+11:{start:'phone',post:'phone'},
+12:{start:'robot',report:'robot'},
+13:{start:'spaghetti',wait:'spaghetti'},
+14:{start:'money',plan:'money'},
+15:{start:'school',terror:'school'},
+16:{start:'tooth',chair:'tooth'},
+17:{start:'bench',park:'bench'},
+18:{start:'boots',walk:'boots'},
+19:{start:'moon',tea:'tea',end:'moon'}
+};
+
+function printImg(key){
+  const svg=IMGS[key];
+  if(!svg)return;
+  const d=document.createElement('div');
+  d.className='term-img';
+  d.innerHTML=svg;
+  outputEl.appendChild(d);
+  scroll();
+}
+
+// ═══════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════
 let cwd = '/home/paul';
@@ -1177,6 +1238,8 @@ function startAdventure(args) {
     currentAdv = Math.floor(Math.random() * ADVENTURES.length);
     inAdv = true; advMenu = false; advState = 'start';
     print('\n══ ' + ADVENTURES[currentAdv].title.toUpperCase() + ' ══\n');
+    const ri = ADV_IMGS[currentAdv];
+    if(ri && ri.start) printImg(ri.start);
     print(ADVENTURES[currentAdv].states.start.t); print('');
     return;
   }
@@ -1186,6 +1249,8 @@ function startAdventure(args) {
       currentAdv = num - 1;
       inAdv = true; advMenu = false; advState = 'start';
       print('\n══ ' + ADVENTURES[currentAdv].title.toUpperCase() + ' ══\n');
+      const si = ADV_IMGS[currentAdv];
+      if(si && si.start) printImg(si.start);
       print(ADVENTURES[currentAdv].states.start.t); print('');
       return;
     }
@@ -1212,6 +1277,8 @@ function handleAdventure(input) {
   const next = state.n[input];
   if (next && adv.states[next]) {
     advState = next;
+    const im = ADV_IMGS[currentAdv];
+    if(im && im[next]) printImg(im[next]);
     print('\n' + adv.states[next].t + '\n');
     if (adv.states[next].end) { inAdv = false; advState = null; currentAdv = null; }
   } else { print('Pick a number from the options above.'); }

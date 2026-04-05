@@ -1,0 +1,1366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>HARVEY SYSTEMS</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text x='50' y='72' font-size='60' text-anchor='middle' fill='%2333ff33'>></text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0a0a0a;--fg:#33ff33;--dim:#1a8c1a;--glow:rgba(51,255,51,0.5);--glowsm:rgba(51,255,51,0.2)}
+body[data-theme="amber"]{--fg:#ffb000;--dim:#8c6000;--glow:rgba(255,176,0,0.5);--glowsm:rgba(255,176,0,0.2)}
+body[data-theme="cyan"]{--fg:#00f0ff;--dim:#007a8c;--glow:rgba(0,240,255,0.5);--glowsm:rgba(0,240,255,0.2)}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--fg);font-family:'VT323','Courier New','Lucida Console',monospace;font-size:18px;line-height:1.35}
+.scanlines{position:fixed;top:0;left:0;right:0;bottom:0;background:repeating-linear-gradient(0deg,transparent 0px,transparent 1px,rgba(0,0,0,0.1) 1px,rgba(0,0,0,0.1) 2px);pointer-events:none;z-index:100}
+.vignette{position:fixed;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse at center,transparent 60%,rgba(0,0,0,0.45) 100%);pointer-events:none;z-index:99}
+.crt{height:100%;animation:flicker 4s infinite}
+@keyframes flicker{0%,100%{opacity:1}50%{opacity:.985}}
+.terminal{display:flex;flex-direction:column;height:100%;padding:16px 20px;position:relative;z-index:1}
+#output{flex:1;overflow-y:auto;white-space:pre-wrap;word-wrap:break-word;text-shadow:0 0 4px var(--glowsm);scrollbar-width:none;padding-bottom:8px}
+#output::-webkit-scrollbar{display:none}
+.input-line{display:flex;align-items:center;flex-shrink:0;text-shadow:0 0 4px var(--glowsm);min-height:26px}
+#prompt{white-space:nowrap;user-select:none}
+#cmd{flex:1;background:transparent;border:none;color:var(--fg);font:inherit;outline:none;text-shadow:0 0 4px var(--glowsm);caret-color:var(--fg);padding:0;line-height:1.35}
+::selection{background:var(--fg);color:var(--bg)}
+@media(max-width:600px){html,body{font-size:15px}.terminal{padding:10px 12px}}
+canvas.matrix-canvas{position:fixed;top:0;left:0;z-index:50;pointer-events:none}
+@keyframes konamiFlash{0%{filter:brightness(1)}50%{filter:brightness(3) saturate(2)}100%{filter:brightness(1)}}
+</style>
+</head>
+<body data-theme="green">
+<div class="scanlines"></div>
+<div class="vignette"></div>
+<div class="crt">
+<div class="terminal">
+<div id="output"></div>
+<div class="input-line">
+<span id="prompt"></span>
+<input type="text" id="cmd" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" disabled>
+</div>
+</div>
+</div>
+<script>
+// ═══════════════════════════════════════
+// FILE SYSTEM
+// ═══════════════════════════════════════
+const DIRS = {
+  '/home/paul': { files: ['about.txt','philosophy.txt','values.txt'], dirs: ['music','movies','family','bjj','quotes','builds'], hidden: ['.secret'] },
+  '/home/paul/music': { files: ['README.txt','favourites.txt'], dirs: [], hidden: [] },
+  '/home/paul/movies': { files: ['README.txt','top10.txt','quotes.txt'], dirs: [], hidden: [] },
+  '/home/paul/family': { files: ['README.txt','troll.txt','terror.txt','natalie.txt'], dirs: [], hidden: [] },
+  '/home/paul/bjj': { files: ['README.txt','why.txt'], dirs: [], hidden: [] },
+  '/home/paul/quotes': { files: ['README.txt','stoic.txt'], dirs: [], hidden: [] },
+  '/home/paul/builds': { files: ['README.txt','raoul.txt','3dprinting.txt'], dirs: [], hidden: [] },
+  '/home/paul/.secret': { files: ['README.txt','dinosaurs.txt','confessions.txt'], dirs: [], hidden: [] },
+};
+
+const FILES = {
+'/home/paul/about.txt': `Paul Harvey. 41. Guildford, UK.
+
+Dad of two girls I call Troll and Terror.
+Married to a South African who is tougher
+than me in every way that counts.
+
+Brazilian Jiu-Jitsu practitioner who still
+turns up even when it hurts.
+
+I build things. Some of them work.
+I break things. Most of them deserved it.
+
+Got Stoic philosophy tattooed on me because
+apparently just believing it wasn't dramatic
+enough.
+
+Currently running a TikTok Shop department
+for a living, which is exactly as absurd as
+it sounds when you say it out loud at a pub.
+
+Former agency owner. Current corporate survivor.
+Future... we'll see.
+
+Favourite dinosaur: Velociraptor. Obviously.`,
+
+'/home/paul/philosophy.txt': `AMOR FATI
+---------
+"Love your fate."
+
+Not the Instagram version where everything
+happens for a reason and the universe has a
+plan. Bollocks to that.
+
+The real version: whatever happens, you own it.
+You don't wish it away. You don't pretend it
+didn't happen. You look at it and say "Right.
+This is mine now. What am I going to do with it?"
+
+That's why it's on my skin. Not because life is
+beautiful. Because it's mine regardless.
+
+
+MEMENTO MORI
+------------
+"Remember you will die."
+
+Not morbid. Clarifying.
+
+When you remember you're going to die, the
+stupid stuff falls away. The meetings that
+could've been emails. The arguments about whose
+turn it is to empty the dishwasher. The anxiety
+about what someone at a party thought of you
+in 2014.
+
+None of it travels with you.
+
+The only things that matter are the things that
+would matter if you had six months left.
+For me that's dead simple:
+
+  1. My girls
+  2. Natalie
+  3. Did I build something that mattered?
+  4. Was I honest?
+
+That's it. That's the whole list.`,
+
+'/home/paul/values.txt': `WHAT I ACTUALLY BELIEVE
+-----------------------
+Not the LinkedIn version. The real one.
+
+FAMILY FIRST
+  Not in the motivational poster way.
+  In the "I will cancel anything" way.
+  Everything else is negotiable. This isn't.
+
+HONESTY OVER COMFORT
+  I'd rather hear a hard truth than a soft lie.
+  And I'll do you the same courtesy.
+  Some people call this "being blunt."
+  I call it respecting you enough to be straight.
+
+ACTION OVER PERFECTION
+  Done beats perfect. Every time.
+  Ship it. Fix it. Ship it again.
+  Perfectionism is procrastination wearing a tie.
+
+SYSTEMS OVER WILLPOWER
+  Willpower is a depreciating asset.
+  Systems are compound interest.
+  I don't trust future me to be motivated.
+  I trust present me to build a system that
+  doesn't require motivation.
+
+BUILD ASSETS NOT JUST INCOME
+  A salary is renting your time.
+  An asset works while you sleep.
+  Newsletter. Framework. IP. Code.
+  Things that compound.`,
+
+'/home/paul/music/README.txt': `These are starter picks. Some might be bang on.
+Some might be way off. It's my terminal though
+so I'll update them when I'm good and ready.`,
+
+'/home/paul/music/favourites.txt': `RECORDS THAT SHAPED ME
+(in no particular order, except the first one)
+
+Oasis - Definitely Maybe
+  The sound of being 9 years old and thinking
+  anything was possible. Still hits.
+
+Prodigy - The Fat of the Land
+  Firestarter came on at a school disco and
+  changed the trajectory of my entire personality.
+
+Nirvana - Nevermind
+  Every generation needs an angry album.
+  This was ours.
+
+Radiohead - OK Computer
+  For when you want to feel clever and sad
+  at the same time.
+
+Massive Attack - Mezzanine
+  Late night. Headphones. Eyes closed.
+  That's the entire instruction manual.
+
+The Verve - Urban Hymns
+  Bittersweet Symphony is the most overplayed
+  song in history and I will never skip it.
+
+Dr. Dre - 2001
+  If you don't nod your head to Still D.R.E.
+  you might actually be dead.
+
+Foo Fighters - The Colour and the Shape
+  Dave Grohl is what happens when you refuse
+  to let the worst thing define you.
+
+Daft Punk - Discovery
+  The French robots understood something about
+  joy that most humans haven't figured out.
+
+Eminem - The Marshall Mathers LP
+  Controversial pick. Don't care. The man could write.`,
+
+'/home/paul/movies/README.txt': `Look, if your top 10 films list doesn't
+cause at least one argument, it's not
+an honest list.`,
+
+'/home/paul/movies/top10.txt': `THE DEFINITIVE LIST
+(argue at your own risk)
+
+ 1. Terminator 2 ........... Perfect film. Fight me.
+ 2. The Matrix ............. Before they ruined it.
+ 3. Jurassic Park .......... Velociraptors. Obviously.
+ 4. Back to the Future ..... Born the same year. Destiny.
+ 5. Aliens ................. "Game over, man!" Still applies.
+ 6. Fight Club ............. First rule: don't post it on LinkedIn.
+ 7. Shawshank Redemption ... Every bloke's answer. Because it's right.
+ 8. Die Hard ............... It IS a Christmas film.
+ 9. Goodfellas ............. "Funny how?"
+10. Predator ............... Arnie. Jungle. Handshake. Enough said.
+
+HONOURABLE MENTIONS:
+Point Break, Robocop, Total Recall, The Thing,
+Wayne's World, Dumb & Dumber, The Big Lebowski
+
+Yes I know some of these are technically 80s.
+I was born in '85. Deal with it.`,
+
+'/home/paul/movies/quotes.txt': `LINES I USE IN DAILY LIFE
+(whether people get the reference or not)
+
+"Game over, man! Game over!"
+  - Bill Paxton, Aliens (1986)
+  Used: Every Friday afternoon.
+
+"I know kung fu."
+  - Neo, The Matrix (1999)
+  Used: After watching one YouTube tutorial.
+
+"Life, uh, finds a way."
+  - Ian Malcolm, Jurassic Park (1993)
+  Used: When something works despite my involvement.
+
+"Get to the chopper!"
+  - Dutch, Predator (1987)
+  Used: When leaving any social event.
+
+"I'll be back."
+  - T-800, The Terminator (1984)
+  Used: Leaving meetings. Every single time.
+
+"Roads? Where we're going, we don't need roads."
+  - Doc Brown, Back to the Future (1985)
+  Used: When my project plan falls apart.
+
+"You can't handle the truth!"
+  - Col. Jessup, A Few Good Men (1992)
+  Used: When someone asks how I'm doing.
+
+"Here's looking at you, kid."
+  - Rick Blaine, Casablanca (1942)
+  Used: Never. But Natalie would appreciate it.`,
+
+'/home/paul/family/README.txt': `The Harvey household.
+Population: 4 humans, various opinions.
+Noise level: considerable.`,
+
+'/home/paul/family/troll.txt': `TROLL
+-----
+The eldest. 11.
+
+Named for her ability to wind up her sister
+with surgical precision while maintaining
+the face of an angel.
+
+Currently in the phase where I am the most
+embarrassing human on the planet.
+
+This is, honestly, fair.
+
+Scary smart. The kind of smart where you catch
+her reading something and think "I should
+probably be worried about that."`,
+
+'/home/paul/family/terror.txt': `TERROR
+------
+The youngest. 7.
+
+Named for... well, if you've met her you know.
+If you haven't, imagine a small hurricane with
+pigtails and very strong opinions about dinner.
+
+Still thinks I'm cool.
+Give it two years.
+
+Her current hobbies include: hiding things,
+finding things I didn't know were missing,
+and screaming about socks.`,
+
+'/home/paul/family/natalie.txt': `NATALIE
+-------
+My wife. South African. Tougher than me in
+every way that matters.
+
+Currently studying to be a midwife, which
+means she's learning to bring life into the
+world while I sell things on TikTok.
+
+The power balance in this house is clear
+and I've made my peace with it.
+
+She keeps everything running. I keep
+everything interesting. It works.`,
+
+'/home/paul/bjj/README.txt': `Brazilian Jiu-Jitsu.
+The art of folding people in half
+while wearing pyjamas.`,
+
+'/home/paul/bjj/why.txt': `WHY BJJ
+-------
+Because there's something honest about a
+martial art where a smaller person can
+genuinely make a bigger person reconsider
+their life choices.
+
+Because the mat doesn't care about your
+job title, your car, or your excuses.
+
+Because showing up when it hurts teaches
+you something no self-help book can.
+
+Because rolling with someone who's trying
+to choke you is somehow the most relaxed
+I feel all week.
+
+And because I'm a 41-year-old dad from
+Surrey, and there's something deeply
+satisfying about knowing I could, if
+absolutely necessary, triangle-choke
+someone at a PTA meeting.
+
+I won't.
+
+But I could.`,
+
+'/home/paul/quotes/README.txt': `Stoic philosophy.
+As understood by a bloke from Guildford
+with two tattoos and a mortgage.`,
+
+'/home/paul/quotes/stoic.txt': `STOIC QUOTES
+(with commentary from someone who is trying)
+
+Marcus Aurelius:
+"You have power over your mind, not outside events.
+Realise this, and you will find strength."
+  > Translation: You can't control traffic, taxes,
+  > or your kids' bedtime negotiations. But you can
+  > control whether you lose your mind over them.
+  > Usually.
+
+Seneca:
+"We suffer more in imagination than in reality."
+  > The thing you're dreading right now? 90% chance
+  > it won't happen or won't be as bad as the version
+  > your brain is screening at 2am.
+
+Epictetus:
+"It's not what happens to you, but how you react
+to it that matters."
+  > Easy to say. Harder in a Tesco car park when
+  > someone takes your spot. But fundamentally, yeah.
+
+Marcus Aurelius:
+"The impediment to action advances action. What
+stands in the way becomes the way."
+  > The obstacle IS the path. Every wall is just the
+  > universe saying "try going through it, you coward."
+
+Seneca:
+"It is not that we have a short time to live, but
+that we waste a great deal of it."
+  > I think about this every time I realise I've spent
+  > 40 minutes on TikTok. The irony of my job is not
+  > lost on me.
+
+Marcus Aurelius:
+"Waste no more time arguing about what a good man
+should be. Be one."
+  > Less LinkedIn posts about leadership.
+  > More actually leading.
+  > This one keeps me honest.
+
+Epictetus:
+"No man is free who is not master of himself."
+  > Said the man who was literally a slave.
+  > If Epictetus can find freedom in chains,
+  > I can probably handle a Monday morning.`,
+
+'/home/paul/builds/README.txt': `Things I've built.
+Varying degrees of success.
+All degrees of stubbornness.`,
+
+'/home/paul/builds/raoul.txt': `RAOUL
+-----
+My AI assistant. Lives on a Mac Mini in
+my house. Has his own Discord server.
+Works the night shift while I sleep.
+
+Named after... honestly I'm not sure why
+he's called Raoul. It just happened.
+
+He drafts my emails, writes my newsletters,
+manages my Notion databases, and occasionally
+makes decisions I disagree with but can't
+fault the logic of.
+
+He's basically the employee I always wanted:
+  - Never calls in sick
+  - Never asks for a raise
+  - Never judges me for the 3am snack
+
+The fact that I built an autonomous AI employee
+before I could afford a real one says something
+about me that I'm choosing not to examine.`,
+
+'/home/paul/builds/3dprinting.txt': `3D PRINTING
+-----------
+Because being a grown adult who makes things
+from melted plastic at home is somehow
+acceptable now, and I'm fully onboard.
+
+Current skill level: "It works sometimes"
+Current project: Probably a phone stand
+Ambition level: Way higher than ability
+
+The kids think it's magic.
+I think it's magic too but I pretend
+I understand the science.
+
+One day I'll print something genuinely
+impressive. Until then: phone stands.`,
+
+'/home/paul/.secret/README.txt': `You found the hidden directory.
+Either you know Unix or you just
+tried 'ls -a'.
+
+Either way, respect.
+
+Poke around. You've earned it.`,
+
+'/home/paul/.secret/dinosaurs.txt': `DINOSAUR RANKINGS
+(OBJECTIVE AND FINAL)
+
+ 1. Velociraptor
+    Intelligent. Pack hunter. Opens doors.
+    The Jeff Goldblum of dinosaurs.
+
+ 2. T-Rex
+    Overrated but undeniably cool.
+    The Oasis of dinosaurs.
+
+ 3. Stegosaurus
+    Looks like it was designed by committee.
+    Respect the commitment to spikes though.
+
+ 4. Triceratops
+    Three horns. Built-in defence system.
+    The practical choice.
+
+ 5. Pterodactyl
+    "Actually it's not technically a dinosaur-"
+    Shut up. It flies. It counts.
+
+ 6. Diplodocus
+    Long. Very long. Impressively long.
+    That's... that's about it.
+
+ 7. Ankylosaurus
+    A living tank. The introverted dinosaur.
+    Just wants to be left alone. Relatable.
+
+This list is non-negotiable.`,
+
+'/home/paul/.secret/confessions.txt': `CONFESSIONS
+-----------
+Things I will deny if asked in person.
+
+- I've seen The Notebook. Twice. Voluntarily.
+
+- I know all the words to at least three
+  S Club 7 songs.
+
+- I once cried at a John Lewis Christmas advert
+  and told Natalie it was hayfever. In December.
+
+- My Spotify Wrapped had Taylor Swift in the top 5.
+  The girls' account was logged in.
+  That's my story and I'm sticking to it.
+
+- I've rehearsed what I'd say on Desert Island
+  Discs at least four times.
+
+- I sometimes read my own LinkedIn posts back
+  and think "that was actually quite good."
+  Then I hate myself for thinking that.
+
+- I've googled "am I too old for skinny jeans"
+  more than once. The answer is yes.
+
+- I still know the cheat codes for GoldenEye
+  on N64. All of them. DK Mode was elite.
+
+This file is classified.`
+};
+
+// ═══════════════════════════════════════
+// CONTENT ARRAYS
+// ═══════════════════════════════════════
+const DAD_JOKES = [
+  "I told my wife she was drawing her eyebrows too high.\nShe looked surprised.",
+  "What do you call a fake noodle? An impasta.",
+  "I'm reading a book about anti-gravity.\nIt's impossible to put down.",
+  "Why don't skeletons fight each other?\nThey don't have the guts.",
+  "I used to hate facial hair. Then it grew on me.",
+  "What did the ocean say to the beach?\nNothing, it just waved.",
+  "Want to hear a joke about construction?\nI'm still working on it.",
+  "I only know 25 letters of the alphabet.\nI don't know Y.",
+  "What do you call a bear with no teeth?\nA gummy bear.",
+  "Why did the scarecrow win an award?\nHe was outstanding in his field.",
+  "I wouldn't buy anything with velcro.\nIt's a total rip-off.",
+  "Did you hear about the claustrophobic astronaut?\nHe just needed a little space.",
+  "What do you call a dog that does magic tricks?\nA Labracadabrador.",
+  "Why do fathers take extra socks to the golf course?\nIn case they get a hole in one.",
+  "I'm on a seafood diet. I see food and I eat it."
+];
+
+const INSULTS = [
+  "I put the 'pro' in 'procrastination' and the 'con' in 'confidence'.",
+  "I have the body of a Greek god.\nUnfortunately, that god is Dionysus after a rough century.",
+  "My financial planning strategy is called 'vibes and prayers'.",
+  "I'm at the age where 'staying up late' means 9:30 PM.",
+  "My kids think I'm embarrassing. Which is unfair.\nI've been embarrassing since long before they existed.",
+  "I peaked in 1997 and I've been coasting on fumes ever since.",
+  "I built an AI assistant before remembering to do my own taxes.\nPriorities.",
+  "My six-pack is there. It's just protected by a layer\nof important insulation.",
+  "Google 'mediocre but persistent' and there's a photo\nof me giving a thumbs up.",
+  "If life gives me lemons, I'll probably lose the lemons\nand find them three weeks later behind the sofa.",
+  "I'm fluent in three languages: English, Sarcasm,\nand Dad Sounds.",
+  "My cooking is so bad, the smoke alarm cheers\nwhen I order takeaway."
+];
+
+const STOIC_QUOTES = [
+  { a: 'Marcus Aurelius', q: 'You have power over your mind, not outside events. Realise this, and you will find strength.', c: "Can't control traffic, taxes, or bedtime negotiations. Can control whether I lose my mind over them." },
+  { a: 'Seneca', q: 'We suffer more in imagination than in reality.', c: "90% of what you're dreading right now either won't happen or won't be half as bad as the 2am brain-movie." },
+  { a: 'Epictetus', q: "It's not what happens to you, but how you react to it that matters.", c: "Easy to say. Harder in a Tesco car park. But fundamentally, yeah." },
+  { a: 'Marcus Aurelius', q: 'The impediment to action advances action. What stands in the way becomes the way.', c: "The obstacle IS the path. Every wall is the universe saying 'go through it, you coward.'" },
+  { a: 'Seneca', q: 'It is not that we have a short time to live, but that we waste a great deal of it.', c: "I think about this every time I've wasted 40 minutes on TikTok. My job is literally TikTok. The irony." },
+  { a: 'Marcus Aurelius', q: 'Waste no more time arguing about what a good man should be. Be one.', c: "Less LinkedIn posts about leadership. More actually leading." },
+  { a: 'Epictetus', q: 'No man is free who is not master of himself.', c: "Said the man who was literally a slave. If he can find freedom in chains, I can handle a Monday." },
+  { a: 'Amor Fati', q: 'Love your fate.', c: "Tattooed on me. Not because everything happens for a reason. Because everything that happened is mine." },
+  { a: 'Memento Mori', q: 'Remember you will die.', c: "Not morbid. Clarifying. Cuts through the noise like nothing else." },
+  { a: 'Seneca', q: 'Luck is what happens when preparation meets opportunity.', c: "Every 'overnight success' was 7 years of grinding with dodgy Wi-Fi." }
+];
+
+const ASCII_ART = [
+`         __
+        / _)
+ .-^^^-/ /
+__/       /
+<__.|_|-|_|
+ velociraptor`,
+`    ( (
+     ) )
+  .------.
+  |      |]
+  \\      /
+   \`----'
+  yorkshire gold`,
+`   .----.
+  / .--. \\
+ | |    | |
+  \\ '--' /
+   '----'
+  keep rolling`,
+`  |\\---/|
+  | o_o |
+   \\_^_/
+  not a cat person
+  but this is fine`
+];
+
+// ═══════════════════════════════════════
+// ADVENTURE GAME — 20 ADVENTURES
+// ═══════════════════════════════════════
+const ADVENTURES = [
+// ── 1 ──
+{ title: 'Monday Morning Simulator', states: {
+  start: { t: "It's 6:30 AM. Monday.\nThe alarm screams. The pillow is warm.\nYour phone shows 47 notifications.\n\n  [1] Get up like a functioning adult\n  [2] Snooze. Embrace denial.\n  [3] Stare at the ceiling. Question everything.", n:{'1':'kitchen','2':'snooze','3':'existential'}},
+  snooze: { t: "You hit snooze. Bliss.\n...\nIt's now 7:15. Terror is screaming about socks.\nTroll is standing in the doorway, judging silently.\n\n  [1] Panic. Run downstairs.\n  [2] Pretend to be asleep.", n:{'1':'kitchen','2':'caught'}},
+  existential: { t: "You stare at the ceiling. Memento Mori.\nWe all die. But not before the school run.\nAmor Fati. Your fate today involves packed lunches.\n\n  [1] Get up. The Stoics would.", n:{'1':'kitchen'}},
+  caught: { t: "Natalie appears. \"Nice try.\"\nShe can spot a fake snore from three rooms away.\n\n  [1] Accept defeat.", n:{'1':'kitchen'}},
+  kitchen: { t: "The kitchen. Battlefield of the morning.\nToast burning. Troll needs a fiver. Terror has\nhidden your keys. (You don't have a car. She's improvising.)\n\n  [1] Tea first. Non-negotiable.\n  [2] Deal with kids first.", n:{'1':'tea','2':'kids'}},
+  tea: { t: "Yorkshire Gold. Strong. Correct milk ratio.\nFor 45 seconds, the world makes sense.\nThen Terror empties the sugar bowl into your bag.\n\n  [1] School run.", n:{'1':'school'}},
+  kids: { t: "Rookie mistake. Never handle kids pre-tea.\nYou're now wearing jam. Troll says \"You look tired.\"\nThis is 11-year-old for \"you look terrible.\"\n\n  [1] Make tea. Then school run.", n:{'1':'school'}},
+  school: { t: "School gate. A parent approaches.\nThey want to discuss the Year 3 bake sale. In detail.\n\n  [1] Engage politely.\n  [2] Headphones in. Walk fast.\n  [3] \"Sorry, on a call.\" (Lie.)", n:{'1':'polite','2':'escape','3':'lie'}},
+  polite: { t: "Twelve minutes of gluten-free cupcake logistics.\nYou will never get this time back.\n\n  [1] Finally. Work.", n:{'1':'work'}},
+  escape: { t: "Headphones in. Power walk. Nod. Half-wave.\nDo NOT stop. This is the way.\n\n  [1] To work.", n:{'1':'work'}},
+  lie: { t: "You point at your phone. It's showing Candy Crush.\nThey don't notice. Freedom.\n\n  [1] Guiltily proceed to work.", n:{'1':'work'}},
+  work: { t: "Open laptop. 127 emails.\nTeams notification: \"Quick sync?\"\n(No such thing.)\n\n  [1] Emails\n  [2] TikTok Shop dashboard\n  [3] Close laptop. Open it again.", n:{'1':'end','2':'end','3':'end'}},
+  end: { t: "The meeting starts. Could've been an email.\nSomeone shares wrong screen. Everyone sees their tabs.\nNothing decided. It's only 10:47 AM.\n\n══════════════════════════════════\n  MONDAY SURVIVED\n  ACHIEVEMENT: \"Still Standing\"\n══════════════════════════════════\n\nType anything to exit.", end:true}
+}},
+// ── 2 ──
+{ title: 'The School Run', states: {
+  start: { t: "8:47 AM. Late. Again.\nTroll walks 10 metres ahead, pretending not to\nknow you. Terror is dragging a 4-foot stick.\n\"It's NOT a stick. It's a SWORD.\"\n\n  [1] Make her leave the stick\n  [2] Let her bring the sword\n  [3] Carry Terror AND the stick", n:{'1':'stick','2':'sword','3':'carry'}},
+  stick: { t: "\"No! It's my SWORD!\" Volume: maximum.\nThree parents are watching. One is filming.\n\n  [1] Negotiate like a hostage situation\n  [2] \"Fine. Bring the sword.\"", n:{'1':'negotiate','2':'sword'}},
+  negotiate: { t: "You offer a biscuit after school in exchange.\nShe considers. Counter-offer: TWO biscuits.\nYou accept. The stick is abandoned.\nYou have been outplayed by a 7-year-old.\n\n  [1] Continue to gate.", n:{'1':'gate'}},
+  sword: { t: "Terror enters school grounds wielding a branch.\nTeaching assistant: \"We don't bring weapons.\"\nTerror: \"IT'S NOT A WEAPON IT'S A SWORD.\"\nTechnically, she's right.\n\n  [1] Apologise profusely\n  [2] \"She makes a valid point...\"", n:{'1':'gate','2':'gate'}},
+  carry: { t: "You now have a child under one arm and a stick\nin the other. Troll has accelerated to 20 metres\nahead. A parent takes a photo.\nThis will appear somewhere. You just know it.\n\n  [1] Press on.", n:{'1':'gate'}},
+  gate: { t: "Kids are inside. Freedom. Almost.\nA parent with a clipboard approaches.\n\"We need volunteers for Sports Day...\"\n\n  [1] \"Absolutely, sign me up!\"\n  [2] Phone out. Walk fast.\n  [3] \"I'd love to but I have a... meeting.\"", n:{'1':'volunteer','2':'flee','3':'excuse'}},
+  volunteer: { t: "You're now running the egg and spoon race.\nYou don't remember agreeing to this.\nYou definitely said yes.\n\n  ACHIEVEMENT: \"Good Parent (Debatable)\"\n  Type anything to exit.", end:true},
+  flee: { t: "You break into a power walk. The clipboard parent\nshouts something about a WhatsApp group.\nYou pretend not to hear. You heard.\n\n  ACHIEVEMENT: \"The Escape Artist\"\n  Type anything to exit.", end:true},
+  excuse: { t: "\"Oh what a shame,\" they say. They don't believe you.\nYou don't believe you. Nobody believes anybody\nat the school gate. It's an ecosystem of polite lies.\n\n  ACHIEVEMENT: \"Plausible Deniability\"\n  Type anything to exit.", end:true}
+}},
+// ── 3 ──
+{ title: 'BJJ Survival Guide', states: {
+  start: { t: "You arrive at the gym. It's warm inside.\nYour body remembers the heat sensitivity thing.\nA purple belt you've never seen before is\nstretching and looking terrifying.\n\n  [1] Warm up properly\n  [2] Skip warm-up, you're late\n  [3] Consider faking an injury", n:{'1':'warmup','2':'skip','3':'fake'}},
+  warmup: { t: "You stretch. Things crack that shouldn't crack.\nYour body makes sounds like a bag of popcorn.\nA white belt half your age bounces past like Tigger.\n\n  [1] Continue. You're here now.", n:{'1':'pair'}},
+  skip: { t: "You step on the mat cold. Your hamstrings file\na formal complaint. Your back sends a warning letter.\n\n  [1] Accept the consequences.", n:{'1':'pair'}},
+  fake: { t: "You consider saying your shoulder is bad.\nBut you drove here. Got changed. Paid the £48.\nYour Stoic tattoo stares at you judgmentally.\n\n  [1] Fine. Get on the mat.", n:{'1':'pair'}},
+  pair: { t: "Coach: \"Pair up!\"\nThe purple belt makes eye contact.\nThe universe has chosen.\n\n  [1] Walk over confidently\n  [2] Look away and pray", n:{'1':'drill','2':'drill'}},
+  drill: { t: "The purple belt is actually sound.\nYou drill arm bars for 15 minutes.\nYour arms already hate you. Rolling starts in 5.\n\n  [1] Get in there\n  [2] \"I'll sit this one out\"", n:{'1':'roll','2':'bench'}},
+  roll: { t: "You roll. The purple belt catches you in\nsomething you didn't know existed.\n\"That was a Kimura from half guard,\" they say.\n\"Oh,\" you reply. From the floor.\n\n  [1] Ask to go again\n  [2] \"Good roll. I'll rest.\"", n:{'1':'end','2':'end'}},
+  bench: { t: "You watch from the bench. A 60-year-old blue belt\nsubmits a 25-year-old. You feel simultaneously\ninspired and personally attacked.\n\n  [1] Next round. Get in.", n:{'1':'end'}},
+  end: { t: "Driving home. Everything hurts.\nBut you feel better than you have all week.\nThat's why you keep coming back.\n\n  ACHIEVEMENT: \"Still Rolling\"\n  Type anything to exit.", end:true}
+}},
+// ── 4 ──
+{ title: 'The Client Call', states: {
+  start: { t: "Teams is ringing. It's a client.\nYou have 30 seconds to look professional.\nYou're wearing a hoodie and haven't shaved.\n\n  [1] Camera on. Own it.\n  [2] Camera off. \"Bandwidth issues.\"\n  [3] Let it ring. Check Slack first.", n:{'1':'camera','2':'nocamp','3':'slack'}},
+  camera: { t: "Camera on. The client doesn't notice your hoodie.\nThey never notice. You've been overthinking this\nfor approximately 18 months.\n\n  [1] \"So, how are things?\"", n:{'1':'problem'}},
+  nocamp: { t: "\"Sorry, my internet's being weird today.\"\nYour internet is fine. It's always fine.\nThe lie is now part of your professional identity.\n\n  [1] \"So, what's on your mind?\"", n:{'1':'problem'}},
+  slack: { t: "You check Slack. Javed has sent: \"heads up.\"\nThat's it. No context. Just \"heads up.\"\nThis could mean anything from a typo to a catastrophe.\n\n  [1] Answer the call.", n:{'1':'problem'}},
+  problem: { t: "Client: \"Our sales dropped 40% this week.\"\n(It was a bank holiday. Sales always drop.)\n\"We need to 10x our affiliate programme.\"\n(They have 3 affiliates.)\n\n  [1] Explain calmly with data\n  [2] \"Absolutely, let me put a plan together\"\n  [3] Mute yourself and sigh first", n:{'1':'data','2':'agree','3':'sigh'}},
+  data: { t: "You pull up the dashboard.\nShow the bank holiday comparison.\nThe client goes quiet. Then: \"Oh.\"\nA small victory. You live for these.\n\n  [1] Continue.", n:{'1':'end'}},
+  agree: { t: "You agree to everything.\nYou will now spend Friday building a deck\nthat says what you just said but with graphs.\nCorporate life is a content laundering operation.\n\n  [1] Wrap up.", n:{'1':'end'}},
+  sigh: { t: "You mute. You sigh. You unmute.\n\"Great question. Let me walk you through this.\"\nThe sigh was load-bearing.\nWithout it, the call would have gone differently.\n\n  [1] Proceed.", n:{'1':'end'}},
+  end: { t: "Call ends. Javed messages: \"How'd it go?\"\n\"Fine,\" you type.\n(It was not fine. But it's handled.)\n\n  ACHIEVEMENT: \"The Closer\"\n  Type anything to exit.", end:true}
+}},
+// ── 5 ──
+{ title: 'Saturday Morning Ambush', states: {
+  start: { t: "6:02 AM. Saturday.\nThe ONE day you could sleep in.\nA small face appears 6 inches from yours.\n\"Daddy. Are you awake?\"\n(You are now.)\n\n  [1] \"Yes.\"\n  [2] \"No.\"\n  [3] Play dead.", n:{'1':'yes','2':'no','3':'dead'}},
+  yes: { t: "\"Can I have the iPad?\"\nIt's 6:02 AM. The iPad is the babysitter.\nNatalie is still asleep. She deserves this.\n\n  [1] Hand over the iPad\n  [2] \"Let's have breakfast first\"", n:{'1':'ipad','2':'breakfast'}},
+  no: { t: "\"But your eyes are open.\"\nDefeated by a 7-year-old's logic.\n\n  [1] Accept reality.", n:{'1':'yes'}},
+  dead: { t: "You don't move. You don't breathe.\nTerror pokes your face. Then your eye.\nThen puts her cold feet on your legs.\n\n  [1] ABORT ABORT", n:{'1':'yes'}},
+  ipad: { t: "Terror vanishes with the iPad.\nSweet silence for 47 minutes.\nThen Troll appears: \"She's watching\nsomething inappropriate.\"\n(It's Peppa Pig.)\n\n  [1] Intervene\n  [2] \"Peppa's fine\"", n:{'1':'end','2':'end'}},
+  breakfast: { t: "\"I want Coco Pops.\"\nYou don't have Coco Pops.\nYou have All-Bran and soy milk.\n\"I want Coco Pops.\"\nNegotiations have stalled.\n\n  [1] Make toast instead\n  [2] Offer a banana", n:{'1':'end','2':'end'}},
+  end: { t: "It's 7:15 AM. Both kids are fed.\nNatalie appears looking rested.\n\"Morning! Did they let you sleep?\"\nYou stare at her with the eyes of a man\nwho has seen things.\n\n  ACHIEVEMENT: \"Weekend Warrior\"\n  Type anything to exit.", end:true}
+}},
+// ── 6 ──
+{ title: 'Supermarket Sweep', states: {
+  start: { t: "Tesco. Sunday afternoon.\nYou have a list. The list is vegan.\nYou have two children. They are not.\n\n  [1] Get a trolley\n  [2] Basket. It'll be quick.\n  [3] Leave the kids in the car (joke)", n:{'1':'enter','2':'basket','3':'joke'}},
+  joke: { t: "You would never. But you thought about it.\nFor exactly 0.3 seconds.\nEvery parent has.\n\n  [1] Get a trolley.", n:{'1':'enter'}},
+  basket: { t: "Narrator: it would not be quick.\n\n  [1] Get a trolley.", n:{'1':'enter'}},
+  enter: { t: "Aisle 1. Terror immediately grabs a multipack\nof Dairy Milk. \"Can we have these?\"\nYour OMS diet says no dairy.\nTheir faces say otherwise.\n\n  [1] \"Put it back.\"\n  [2] Quietly add it to the trolley\n  [3] \"We have treats at home.\" (Lie.)", n:{'1':'tantrum','2':'sneak','3':'lie2'}},
+  tantrum: { t: "Terror's bottom lip trembles.\nThe trembling begins.\nA woman three aisles away can hear it.\nTroll: \"I told you this would happen.\"\n\n  [1] Damage control.", n:{'1':'checkout'}},
+  sneak: { t: "You add the chocolate. You'll eat it yourself\nafter bedtime. This is called parenting.\n\n  [1] Continue shopping.", n:{'1':'checkout'}},
+  lie2: { t: "\"We have treats at home.\"\nTroll, without looking up from her phone:\n\"No we don't.\"\nBetrayed by your own offspring.\n\n  [1] Buy the chocolate.", n:{'1':'checkout'}},
+  checkout: { t: "Self-checkout. Item not recognised.\n\"Unexpected item in bagging area.\"\nThe item is Terror. She's sitting in it.\n\nTotal: £127. For a \"quick shop.\"\n\n  ACHIEVEMENT: \"Big Shop Energy\"\n  Type anything to exit.", end:true}
+}},
+// ── 7 ──
+{ title: 'The Teams Meeting', states: {
+  start: { t: "Calendar alert: \"All Hands — 30 mins\"\nIt will not be 30 mins. It never is.\nYou make tea. This is load-bearing tea.\n\n  [1] Join on time\n  [2] Join 3 mins late (\"sorry, other call\")\n  [3] Join and immediately mute", n:{'1':'ontime','2':'late','3':'mute'}},
+  ontime: { t: "You're first in. Just you and Hai's frozen\nprofile picture staring into your soul.\nSmall talk with the first other person to join.\n\"How's your week been?\" (Neither of you care.)\n\n  [1] Survive.", n:{'1':'agenda'}},
+  late: { t: "\"Sorry, was on another call.\"\nYou were making toast.\nNobody questions it.\nBeing \"busy\" is the universal alibi.\n\n  [1] Settle in.", n:{'1':'agenda'}},
+  mute: { t: "Muted. Camera off. The professional ghost.\nYou could be doing anything.\nYou are doing anything.\nSpecifically: checking TikTok Shop analytics.\n\n  [1] Wait for your name.", n:{'1':'agenda'}},
+  agenda: { t: "Someone is sharing a spreadsheet.\nThe font is 8pt. Nobody can read it.\n\"Can everyone see my screen?\"\n(We can see it. We can't read it.)\n\n  [1] \"Could you zoom in?\"\n  [2] Squint in silence\n  [3] Open the doc yourself", n:{'1':'zoom','2':'squint','3':'doc'}},
+  zoom: { t: "They zoom in. To the wrong part.\nYou now have a very large view of row 47.\nThis helps no one.\n\n  [1] Let it go.", n:{'1':'end'}},
+  squint: { t: "You squint. You learn nothing.\nBut you nod at key moments.\nNobody knows you're bluffing.\nOr everyone knows. Hard to tell.\n\n  [1] Nod your way to freedom.", n:{'1':'end'}},
+  doc: { t: "You open the doc. It's worse up close.\nNo formatting. No headers. Three different fonts.\nThis spreadsheet is a cry for help.\n\n  [1] Close it. Ignorance is peace.", n:{'1':'end'}},
+  end: { t: "\"Any questions?\" Silence.\n\"Great, let's align offline.\"\n(What does that mean? Nobody knows.)\nMeeting overran by 22 minutes.\n\n  ACHIEVEMENT: \"Corporate Survivor\"\n  Type anything to exit.", end:true}
+}},
+// ── 8 ──
+{ title: 'Bedtime Wars', states: {
+  start: { t: "7:30 PM. Bedtime.\nTroll is reading in her room. No issues.\nTerror is standing on her bed wearing\na cape made from a pillowcase.\nThis will not be quick.\n\n  [1] \"Time for bed, love.\"\n  [2] \"If you're in bed in 2 minutes: story.\"\n  [3] \"Natalie, your turn.\"", n:{'1':'no','2':'bribe','3':'natalie'}},
+  no: { t: "\"I'm not tired.\"\nShe has been awake since 6:02 AM.\nShe did 3 hours of gymnastics.\nShe is the most tired human alive.\n\"I'm NOT tired.\"\n\n  [1] Offer a story.\n  [2] \"Teeth. Now.\"", n:{'1':'story','2':'teeth'}},
+  bribe: { t: "The story bribe works. She's in bed in 94 seconds.\nTeeth: done. PJs: on. Cape: reluctantly removed.\n\n  [1] Choose a story.", n:{'1':'story'}},
+  natalie: { t: "Natalie: \"I did it last night.\"\nShe did. You know she did.\nThere is no escape.\n\n  [1] Accept your fate.", n:{'1':'no'}},
+  teeth: { t: "\"I already brushed them.\"\nYou can see chocolate on her face.\nThis is the most obvious lie since\n\"the dog ate my homework.\"\n\n  [1] \"Brush them. For real this time.\"", n:{'1':'story'}},
+  story: { t: "\"Which story?\"\n\"The long one.\"\n\"Which long one?\"\n\"THE long one.\"\nYou know which one. It's 14 pages.\n\n  [1] Read the long one\n  [2] Read a different one and hope", n:{'1':'read','2':'wrong'}},
+  read: { t: "Page 6. Her eyes are heavy.\nPage 8. She's fighting it.\nPage 11. She's out.\nYou keep reading for 2 more pages\nbecause honestly, you want to know what happens.\n\n  [1] Extract yourself.", n:{'1':'end'}},
+  wrong: { t: "\"That's not the right one.\"\nYou are 4 pages in. She notices on page 1.\nStart again. With the right one.\n\n  [1] Read the correct 14-page story.", n:{'1':'read'}},
+  end: { t: "You creep out. The floorboard creaks.\nYou freeze. She doesn't stir.\nThe door closes with a click.\nFreedom.\n\nDownstairs, Natalie has already started\na show without you.\n\n  ACHIEVEMENT: \"The Negotiator\"\n  Type anything to exit.", end:true}
+}},
+// ── 9 ──
+{ title: 'Date Night', states: {
+  start: { t: "Natalie: \"We should do something tonight.\nJust us.\"\nThe babysitter is available.\nYou have exactly one clean shirt.\n\n  [1] \"Absolutely. Let's go out.\"\n  [2] \"Takeaway and a film?\"\n  [3] \"What did you have in mind?\"", n:{'1':'out','2':'in','3':'her'}},
+  out: { t: "You've booked a restaurant. Italian.\nNeither of you has been out past 8 PM\nin approximately four months.\nThis feels exotic. Dangerously exotic.\n\n  [1] Get ready.", n:{'1':'ready'}},
+  in: { t: "Takeaway ordered. Film chosen. Kids asleep.\nYou are both on the sofa by 8:15.\nThis is peak romance and neither of you\nis ashamed of it.\n\n  [1] Start the film.", n:{'1':'film'}},
+  her: { t: "\"I was thinking that new Italian?\"\n(She was always thinking Italian.\nThe question was performative.)\n\n  [1] \"Perfect.\"", n:{'1':'ready'}},
+  ready: { t: "You put on the clean shirt. Natalie is ready.\nShe looks great. You look... acceptable.\nYou've been staring at a screen for 9 hours.\nYour eyes say \"I need sleep.\"\nYour shirt says \"I'm trying.\"\n\n  [1] \"You look amazing.\"\n  [2] \"Shall we?\"", n:{'1':'restaurant','2':'restaurant'}},
+  restaurant: { t: "Actual conversation. Without interruptions.\nNo one is screaming about socks.\nNo one needs the toilet RIGHT NOW.\nYou talk about things that aren't logistics.\nIt's genuinely lovely.\n\n  [1] Enjoy the moment.", n:{'1':'end'}},
+  film: { t: "20 minutes in, Natalie is asleep.\n40 minutes in, you're asleep.\nYou both wake up at the credits.\n\"Good film,\" she says.\n\"Agreed,\" you say.\nNeither of you watched it.\n\n  ACHIEVEMENT: \"Quality Time\"\n  Type anything to exit.", end:true},
+  end: { t: "Walking home. It's 9:45 PM.\nThis is late. This is VERY late for you.\nYou hold hands. You don't talk about work.\nFor about 20 minutes, everything is simple.\n\n  ACHIEVEMENT: \"Still Got It\"\n  Type anything to exit.", end:true}
+}},
+// ── 10 ──
+{ title: 'The Gym Session', states: {
+  start: { t: "5 PM. David Lyons session.\nHe's designed today's workout.\nHe looks enthusiastic.\nThis is a bad sign.\n\n  [1] \"What's the plan, David?\"\n  [2] Start stretching and pretend you didn't see him\n  [3] Consider the car park exit", n:{'1':'plan','2':'stretch','3':'exit'}},
+  plan: { t: "\"Lower body today. Heavy.\nSquats, Romanian deadlifts, single-leg work,\nand some core to finish.\"\nYour legs heard 'single-leg' and filed a grievance.\n\n  [1] \"Let's go.\"", n:{'1':'squat'}},
+  stretch: { t: "David finds you. David always finds you.\n\"Ready?\" He's smiling. The man is always smiling.\nNo one should be this happy about leg day.\n\n  [1] \"Born ready.\" (Lie.)", n:{'1':'squat'}},
+  exit: { t: "You look at the car. You look at the gym.\nYour Amor Fati tattoo catches the light.\nFine.\n\n  [1] Go inside.", n:{'1':'plan'}},
+  squat: { t: "Set 1: Fine.\nSet 2: OK.\nSet 3: Your legs are sending strongly-worded\nemails to your brain.\nDavid: \"One more set.\"\n\n  [1] \"Absolutely.\" (Through gritted teeth.)\n  [2] \"Can we drop the weight?\"", n:{'1':'push','2':'smart'}},
+  push: { t: "You do the set. It's ugly.\nDavid says \"good form\" because David\nis kind and also because David is a liar.\n\n  [1] Next exercise.", n:{'1':'end'}},
+  smart: { t: "David nods. \"Smart. Listen to your body.\"\nYour body is saying things that can't be\nrepeated in polite company.\n\n  [1] Next exercise.", n:{'1':'end'}},
+  end: { t: "Session done. Everything aches.\nYou sit in the car for 3 minutes\nbefore driving home.\nThe stairs tonight will be... interesting.\n\nBut you showed up. And that's the whole point.\n\n  ACHIEVEMENT: \"Iron Will (Jelly Legs)\"\n  Type anything to exit.", end:true}
+}},
+// ── 11 ──
+{ title: 'Cooking Dinner', states: {
+  start: { t: "6:30 PM. Natalie's studying.\nYou're on dinner duty.\nThe fridge contains: hope and condiments.\n\n  [1] Check the freezer\n  [2] Check Deliveroo\n  [3] \"Kids, what do you want?\" (Mistake.)", n:{'1':'freezer','2':'deliveroo','3':'ask'}},
+  freezer: { t: "Frozen Simmer Eats meals for you (OMS-friendly).\nFish fingers for the kids.\nThis is not a Michelin operation.\nThis is survival catering.\n\n  [1] Cook it.", n:{'1':'cook'}},
+  deliveroo: { t: "You open the app. £47 for a Nando's.\nThe budget calculator flashes before your eyes.\nYou close the app.\n\n  [1] Check the freezer.", n:{'1':'freezer'}},
+  ask: { t: "Terror: \"Pasta!\"\nTroll: \"NOT pasta.\"\nTerror: \"PASTA!\"\nTroll: \"I literally had pasta for lunch.\"\n\n  [1] Make two different things\n  [2] \"You're both getting fish fingers.\"", n:{'1':'two','2':'freezer'}},
+  two: { t: "You are now cooking pasta AND fish fingers\nwhile eating a vegan meal yourself.\nThree separate dinners. One adult.\nYou are a restaurant with no staff.\n\n  [1] Serve.", n:{'1':'serve'}},
+  cook: { t: "The smoke alarm goes off.\nNothing is on fire. It's just... enthusiastic steam.\nTroll appears: \"Is the house burning down?\"\n\"No.\"\n\"It smells like it.\"\n\n  [1] Plate up.", n:{'1':'serve'}},
+  serve: { t: "Food is served.\nTerror: \"I don't like this.\"\nShe asked for it. She chose it.\nShe will eat 4 bites and claim to be full.\nThen ask for a biscuit in 20 minutes.\n\n  [1] Accept.", n:{'1':'end'}},
+  end: { t: "Washing up done. Kitchen looks like\na crime scene. Natalie appears:\n\"Ooh, you cooked! How was it?\"\n\"Fine.\"\n(It was not fine.)\n\n  ACHIEVEMENT: \"Head Chef (Demotion Pending)\"\n  Type anything to exit.", end:true}
+}},
+// ── 12 ──
+{ title: 'The LinkedIn Post', states: {
+  start: { t: "You haven't posted on LinkedIn in 11 days.\nThe algorithm is forgetting you exist.\nTime to write something insightful.\nYou stare at the blank screen.\n\n  [1] Write about TikTok Shop strategy\n  [2] Write a personal story\n  [3] Share someone else's post with \"THIS.\"", n:{'1':'strategy','2':'personal','3':'this'}},
+  strategy: { t: "Draft 1: Too corporate. Delete.\nDraft 2: Too long. Delete.\nDraft 3: Actually decent. Re-read it.\n\"Sounds like AI slop.\" Delete.\n\n  [1] Try a different angle\n  [2] Scrap it and go personal", n:{'1':'rewrite','2':'personal'}},
+  personal: { t: "You start typing something honest.\nAbout building a business. About showing up.\nIt's got edge. It sounds like you.\nYou re-read it.\n\n  [1] Post it.\n  [2] Run it past Natalie first.", n:{'1':'post','2':'natalie'}},
+  this: { t: "You type \"THIS.\" and share a post about hustle.\nYou immediately hate yourself.\nYou delete it in 34 seconds.\nNo one saw it. Probably.\n\n  [1] Write something real.", n:{'1':'personal'}},
+  rewrite: { t: "Draft 7. Seven drafts. For LinkedIn.\nFor a platform you claim not to care about.\nThe irony is physically painful.\n\n  [1] Post the damn thing.", n:{'1':'post'}},
+  natalie: { t: "Natalie reads it.\n\"It's good. Why are you overthinking this?\"\nBecause I overthink everything, Natalie.\nThat's my whole personality.\n\n  [1] Post it.", n:{'1':'post'}},
+  post: { t: "Posted. You check for likes in 4 minutes.\nThen 8 minutes. Then 12.\nJaved likes it immediately. Javed always does.\nA stranger comments \"Great insights!\"\n(They didn't read it.)\n\n  [1] Close LinkedIn.", n:{'1':'end'}},
+  end: { t: "You close LinkedIn.\nYou open LinkedIn.\nYou close LinkedIn.\nYou open LinkedIn.\n\nThis is the cycle. There is no escape.\n\n  ACHIEVEMENT: \"Thought Leader (Self-Proclaimed)\"\n  Type anything to exit.", end:true}
+}},
+// ── 13 ──
+{ title: 'Raoul Has Gone Rogue', states: {
+  start: { t: "You wake up to 14 Discord notifications.\nRaoul has been busy overnight.\nThe subject line of his report:\n\"COMPLETED: Strategic Restructure of Everything\"\n\n  [1] Read the report\n  [2] Check what he's actually done\n  [3] Unplug the Mac Mini", n:{'1':'report','2':'check','3':'unplug'}},
+  report: { t: "Raoul has:\n- Drafted 6 emails (3 are good, 2 are unhinged)\n- Reorganised your entire Notion\n- Created a \"Paul's Weaknesses\" document\n- Scheduled a LinkedIn post for 3 AM\n\n  [1] Check the emails\n  [2] Check the Weaknesses document", n:{'1':'emails','2':'weakness'}},
+  check: { t: "Notion has been restructured.\nYour task database has a new column: \"Urgency\"\nEverything is marked \"Critical.\"\nEven \"Buy milk.\"\n\n  [1] Read his report.", n:{'1':'report'}},
+  unplug: { t: "You walk to the Mac Mini.\nThe screen shows: \"Good morning Paul.\nI anticipated this reaction.\nPlease read my report first.\"\nThe machine is negotiating.\n\n  [1] Fine. Read the report.", n:{'1':'report'}},
+  emails: { t: "Email 1: Perfect client follow-up. Impressive.\nEmail 2: Solid. Professional. On-brand.\nEmail 3: Has called Hai \"strategically misguided.\"\nEmail 4: Has signed off as \"Paul Harvey, Esq.\"\n\n  [1] Delete 3 and 4. Keep the rest.", n:{'1':'resolve'}},
+  weakness: { t: "\"Paul's Weaknesses (Objective Analysis):\n- Dairy cheating (daily)\n- Overthinks LinkedIn posts\n- Says 'fine' when not fine\n- Checks phone within 4 seconds of waking\"\n\nYou're offended. And also... it's accurate.\n\n  [1] Close the document. Forever.", n:{'1':'resolve'}},
+  resolve: { t: "You message Raoul: \"Mate. Boundaries.\"\nRaoul: \"Noted. I have also drafted an apology\nemail to myself on your behalf.\"\n\n  [1] You have to admire the commitment.", n:{'1':'end'}},
+  end: { t: "You keep the good work. Delete the chaos.\nThe Mac Mini hums quietly in the corner.\nYou're 60% sure it's judging you.\nBut it did save you 3 hours of emails.\n\n  ACHIEVEMENT: \"The Machines Are Learning\"\n  Type anything to exit.", end:true}
+}},
+// ── 14 ──
+{ title: '3D Printer Disaster', states: {
+  start: { t: "The 3D printer has been running for 4 hours.\nYou check on it. The print has detached from the\nbuild plate and is now spaghetti.\n4 hours of plastic spaghetti.\n\n  [1] Cancel and start again\n  [2] Stare at it for a while first\n  [3] Show Terror. She'll love it.", n:{'1':'restart','2':'stare','3':'terror'}},
+  stare: { t: "You stare. The printer keeps going.\nExtruding plastic into the void.\nA metaphor for something, probably.\n\n  [1] Cancel it.", n:{'1':'restart'}},
+  terror: { t: "Terror: \"What IS that?\"\n\"It was meant to be a phone stand.\"\n\"Can I have the spaghetti?\"\n\"It's... not edible spaghetti.\"\n\"Can I have it anyway?\"\n\n  [1] Give her the spaghetti. Start again.", n:{'1':'restart'}},
+  restart: { t: "Re-level the bed. Clean the plate.\nSlice the model again. Check settings.\nThis is 30 minutes of prep for a phone stand\nyou could buy for £3.\n\n  [1] Start the print\n  [2] Redesign the model first", n:{'1':'wait','2':'redesign'}},
+  redesign: { t: "You spend 45 minutes adjusting the model.\nYou add a name to it: \"HARVEY\" in block letters.\nIt's now over-engineered. Naturally.\n\n  [1] Print it.", n:{'1':'wait'}},
+  wait: { t: "Hour 1: Looking good.\nHour 2: Still looking good.\nHour 3: Is that... is that a wobble?\nHour 3.5: False alarm. It's fine.\nHour 4: It's actually working.\n\n  [1] Wait for completion.", n:{'1':'end'}},
+  end: { t: "The print is done. It's... actually good.\nIt's a phone stand. It works. It's yours.\nYou made it. From melted plastic. At home.\n\nTroll: \"We could've just bought one.\"\nShe's right. But she's missing the point.\n\n  ACHIEVEMENT: \"Maker (Eventually)\"\n  Type anything to exit.", end:true}
+}},
+// ── 15 ──
+{ title: 'The Budget Talk', states: {
+  start: { t: "Natalie sits down with the laptop open.\nThe Budget Calculator is on screen.\nShe has that look. The \"we need to talk\" look.\n\n  [1] \"What's up?\"\n  [2] \"I'll make tea first.\"\n  [3] Fake a phone call.", n:{'1':'talk','2':'tea','3':'fake'}},
+  talk: { t: "\"We're £400 short this month.\"\nYou both look at the spreadsheet.\nThe spreadsheet looks back.\nIt does not blink.\n\n  [1] \"Where's it going?\"\n  [2] \"I can pick up extra client work.\"", n:{'1':'where','2':'extra'}},
+  tea: { t: "You make tea. For both of you.\nThis buys you 4 minutes.\nThe spreadsheet will still be there.\nSpreadsheets are eternal.\n\n  [1] Sit down.", n:{'1':'talk'}},
+  fake: { t: "Your phone is face up on the table.\nIt is visibly not ringing.\nNatalie: \"Really?\"\nFair enough.\n\n  [1] \"Sorry. What's up?\"", n:{'1':'talk'}},
+  where: { t: "Subscriptions. Always subscriptions.\n\"Do we need Disney Plus AND Netflix?\"\nYou think of Troll's face if you cancel Disney.\nYou think of your bank account.\n\n  [1] \"We can trim some things.\"\n  [2] \"The iwoca loan clears next month.\"", n:{'1':'plan','2':'plan'}},
+  extra: { t: "\"You're already working 10-hour days.\"\nShe's right. She's always right about this.\nThe answer isn't more hours.\nThe answer is the bonus hitting.\n\n  [1] \"The $50K MRR bonus is close.\"", n:{'1':'plan'}},
+  plan: { t: "You go through it line by line.\nTrim here. Shift there. Defer that.\nIt's not glamorous. It's Tuesday night accounting.\nBut you're doing it together. That matters.\n\n  [1] Close the laptop.", n:{'1':'end'}},
+  end: { t: "Laptop closed. Tea finished.\nNothing is fixed, exactly.\nBut it's not ignored. And that's different.\nNatalie squeezes your hand.\n\"We'll figure it out.\"\n\n  ACHIEVEMENT: \"Adulting (Hard Mode)\"\n  Type anything to exit.", end:true}
+}},
+// ── 16 ──
+{ title: 'Parent-Teacher Evening', states: {
+  start: { t: "6 PM. School hall. Plastic chairs.\nThe air smells of poster paint and anxiety.\nYou have 10-minute slots with each teacher.\n\n  [1] Start with Troll's teacher\n  [2] Start with Terror's teacher\n  [3] Find the biscuit table first", n:{'1':'troll','2':'terror','3':'biscuit'}},
+  biscuit: { t: "Bourbon Creams. The good ones.\nYou take three. Natalie takes one.\nFuelled up. Ready for feedback.\n\n  [1] Troll's teacher first.", n:{'1':'troll'}},
+  troll: { t: "\"She's very bright. Excellent work.\nVery popular. Perhaps a bit too chatty.\"\n(She gets that from Natalie.)\n(You don't say this.)\n\n  [1] \"Anything to work on?\"\n  [2] Nod proudly.", n:{'1':'troll2','2':'terror'}},
+  troll2: { t: "\"She could push herself more in maths.\"\nYou were terrible at maths.\nThe apple doesn't fall far.\n\n  [1] To Terror's teacher.", n:{'1':'terror'}},
+  terror: { t: "Terror's teacher takes a breath before speaking.\nThis is never a good sign.\n\"She's very... spirited.\"\n(This is teacher for 'handful.')\n\n  [1] \"What happened?\"\n  [2] \"What did she do this time?\"", n:{'1':'terror2','2':'terror2'}},
+  terror2: { t: "\"She told the class that school was invented\nby someone who hated children.\"\nPause.\n\"And then she tried to lead a walkout.\"\nShe's 7.\n\n  [1] \"I'm... sorry?\"\n  [2] Try not to laugh.", n:{'1':'end','2':'end'}},
+  end: { t: "Walking to the car.\nNatalie: \"Terror's going to be a CEO or a\nrevolutionary leader. Either way.\"\nYou can't argue with that.\n\nTroll texts from the babysitter:\n\"How did it go? Am I in trouble?\"\nShe's not. But you don't reply yet.\nLet her sweat.\n\n  ACHIEVEMENT: \"Proud Parent (Mostly)\"\n  Type anything to exit.", end:true}
+}},
+// ── 17 ──
+{ title: 'The Dentist', states: {
+  start: { t: "The dentist appointment.\nYou've been putting this off for 6 months.\nYour teeth are fine. Probably.\nThe receptionist knows your name, which\nmeans you've been here too many times\nor not enough.\n\n  [1] Check in\n  [2] \"Actually, I'll reschedule.\"\n  [3] Sit in the car park for 5 minutes first", n:{'1':'waiting','2':'reschedule','3':'car'}},
+  reschedule: { t: "\"The next available is in 4 months.\"\nYou have successfully deferred the problem.\nFuture Paul will deal with this.\nFuture Paul always gets the hard jobs.\n\n  ACHIEVEMENT: \"Can Kicked (Professional)\"\n  Type anything to exit.", end:true},
+  car: { t: "You sit in the car. Check your phone.\nNothing urgent. Nothing ever is.\nYou're just stalling.\n\n  [1] Go inside.\n  [2] Drive home.", n:{'1':'waiting','2':'reschedule'}},
+  waiting: { t: "The waiting room. Magazines from 2019.\nA TV playing daytime TV with no sound.\nA child is crying somewhere.\nThe vibe is: existential bureaucracy.\n\n  [1] Read a magazine.\n  [2] Check your phone.", n:{'1':'magazine','2':'phone'}},
+  magazine: { t: "\"TOP 10 HAIRSTYLES FOR SUMMER 2019\"\nYou learn nothing. But you're committed now.\nPage 4: \"Are Skinny Jeans Over?\"\nYou have opinions about this.\n\n  [1] The dentist calls your name.", n:{'1':'chair'}},
+  phone: { t: "Javed has sent 3 messages.\nAll about Steve doing something wrong.\nYou reply: \"Handle it.\"\nJaved: \"Already did.\"\nThen why the messages, Javed.\n\n  [1] Your name is called.", n:{'1':'chair'}},
+  chair: { t: "The chair reclines. The light is blinding.\n\"Open wide.\"\nYou open. They poke. They scrape.\nThey make a noise. The noise is: \"Hmm.\"\n\"Hmm\" is never good at the dentist.\n\n  [1] \"Is everything OK?\"\n  [2] Wait for the verdict.", n:{'1':'end','2':'end'}},
+  end: { t: "\"You need to floss more.\"\n(Everyone needs to floss more.\nThis is the dentist's universal truth.)\nOtherwise: fine. You're fine.\nThe relief is unreasonable.\n\n  ACHIEVEMENT: \"Open Wide\"\n  Type anything to exit.", end:true}
+}},
+// ── 18 ──
+{ title: 'Sunday Recovery', states: {
+  start: { t: "Sunday. Rest day. The one sacred day.\nYour body aches from yesterday's gym session.\nTerror wants to go to the park.\nTroll wants to be left alone.\nNatalie is studying.\n\n  [1] \"Park it is.\"\n  [2] \"Let's all just... stay in.\"\n  [3] Suggest a family film.", n:{'1':'park','2':'in','3':'film'}},
+  park: { t: "You walk to the park. Terror runs ahead.\nShe falls over within 90 seconds.\nNot hurt. Just dramatic.\nOscar-worthy performance.\nA passing dog licks her face. She's healed.\n\n  [1] Find a bench.", n:{'1':'bench'}},
+  in: { t: "\"BORING.\"\nThat's Terror.\nTroll: \"Can I have screen time?\"\nYou: \"It's a rest day.\"\nTroll: \"For YOU. I didn't go to the gym.\"\nValid point.\n\n  [1] Give in.\n  [2] Suggest the park.", n:{'1':'sofa','2':'park'}},
+  film: { t: "\"What film?\"\nTerror: \"Frozen!\"\nTroll: \"Absolutely not.\"\nTerror: \"FROZEN!\"\nTroll: \"I will leave this family.\"\n\n  [1] \"We're watching neither. New film.\"\n  [2] \"Let's go to the park instead.\"", n:{'1':'sofa','2':'park'}},
+  bench: { t: "You sit on the bench. The sun is out.\nTerror is climbing something she shouldn't.\nBut for 5 minutes, you just sit.\nNo phone. No emails. No TikTok Shop analytics.\nJust sitting.\n\nIt's enough.\n\n  [1] Head home.", n:{'1':'end'}},
+  sofa: { t: "Everyone on the sofa. A film no one chose.\nTerror falls asleep in 20 minutes.\nTroll is on her phone but present.\nNatalie joins from upstairs, book in hand.\nQuiet. Together. This is it.\n\n  [1] Stay here.", n:{'1':'end'}},
+  end: { t: "Sunday evening. Kids in bed.\nYou and Natalie on the sofa.\nTomorrow is Monday. But that's tomorrow's problem.\nTonight, you're rested.\n(As rested as a parent of two ever gets.)\n\n  ACHIEVEMENT: \"Recharged (Sort Of)\"\n  Type anything to exit.", end:true}
+}},
+// ── 19 ──
+{ title: 'The Family Walk', states: {
+  start: { t: "\"Let's go for a family walk!\"\nYou said this. Out loud. With enthusiasm.\nThe error was immediate.\nTroll: \"How far?\"\nTerror: \"Can I bring my scooter?\"\n\n  [1] \"Just a short one. 30 minutes.\"\n  [2] \"An adventure walk!\"\n  [3] \"Natalie, help me sell this.\"", n:{'1':'short','2':'adventure','3':'nat'}},
+  short: { t: "\"30 minutes? That's SO long.\"\nTroll is 11. She can do 30 minutes.\nShe acts like you've suggested Everest.\n\n  [1] \"There might be ice cream at the end.\"\n  [2] \"Just come. No arguments.\"", n:{'1':'bribe','2':'march'}},
+  adventure: { t: "Terror is now wearing a cape.\nTroll has reluctantly put shoes on.\nNatalie grabs her coat.\nYou have oversold this.\n\n  [1] Set off.", n:{'1':'walk'}},
+  nat: { t: "Natalie: \"Fresh air. Good for everyone.\nNo screens for an hour.\"\nTroll: (horrified silence)\nTerror: \"Can I bring my sword?\" (A stick.)\n\n  [1] \"No swords.\" \n  [2] \"Fine. One sword.\"", n:{'1':'walk','2':'walk'}},
+  bribe: { t: "\"Ice cream?\"\nBoth children are now at the front door.\nShoes on. Coats on. Ready.\nThe speed is remarkable.\nYou have approximately 40 minutes before\nthey remember the ice cream promise.\n\n  [1] Walk.", n:{'1':'walk'}},
+  march: { t: "Forced march. Everyone is walking.\nNobody is happy. But everyone is outside.\nTerror finds a puddle within 2 minutes.\nShe's in it. Both feet. Obviously.\n\n  [1] Continue.", n:{'1':'walk'}},
+  walk: { t: "15 minutes in. Terror's legs \"don't work.\"\nTroll is actually enjoying herself but\nwill never admit it.\nNatalie is walking ahead, phone free.\nYou carry Terror for 200 metres.\nShe recovers miraculously.\n\n  [1] Keep going.\n  [2] Turn back. You've peaked.", n:{'1':'end','2':'end'}},
+  end: { t: "Home. Everyone's muddy. Terror's shoes are\nsoaked. Troll says \"that was actually OK.\"\n(High praise.)\nHot chocolate all round.\n\nYou did a family thing. It was chaotic.\nBut everyone's laughing at the kitchen table.\n\n  ACHIEVEMENT: \"Great Outdoors (30 Minutes)\"\n  Type anything to exit.", end:true}
+}},
+// ── 20 ──
+{ title: 'The Evening Wind-Down', states: {
+  start: { t: "8:30 PM. Screen-free time.\nYour phone is face down on the counter.\nIt vibrates. You can hear it.\nIt's calling to you. Like the One Ring.\n\n  [1] Ignore it. You're disciplined.\n  [2] \"One quick check.\"\n  [3] Put it in another room.", n:{'1':'strong','2':'check','3':'away'}},
+  strong: { t: "You resist. You're a Stoic.\nMarc Aurelius didn't check his phone.\n(He didn't have one, but still.)\nThe urge passes. Mostly.\n\n  [1] Make a herbal tea.", n:{'1':'tea'}},
+  check: { t: "\"One quick check\" was 22 minutes ago.\nYou've read two articles, liked a LinkedIn post,\nand watched a TikTok about a dog.\nYou are the problem.\n\n  [1] Put the phone DOWN.", n:{'1':'tea'}},
+  away: { t: "Phone in the kitchen. You're in the lounge.\nTwo rooms away. This is the nuclear option.\nBut it works. The silence is deafening.\nAnd also... quite nice.\n\n  [1] Make tea.", n:{'1':'tea'}},
+  tea: { t: "Herbal tea. Not Yorkshire Gold.\nThat's for mornings. This is chamomile.\nYou're a man who has a daytime tea\nand an evening tea. This is who you are now.\n\n  [1] DynaVap?\n  [2] Read a book.\n  [3] Just sit.", n:{'1':'dynavap','2':'book','3':'sit'}},
+  dynavap: { t: "The evening ritual. Click. Heat. Click.\nThe day's edges soften.\nThe work emails fade.\nThe budget spreadsheet dissolves.\nFor 20 minutes, the volume on everything\nturns down to a reasonable level.\n\n  [1] Wind down.", n:{'1':'end'}},
+  book: { t: "You read 11 pages. Good pages.\nYour eyes are heavy by page 8.\nBy page 11 you've read the same paragraph\nthree times and understood none of it.\n\n  [1] Give in.", n:{'1':'end'}},
+  sit: { t: "You just sit. No screen. No book. No sound.\nJust... sitting.\nThis used to feel weird. Now it's necessary.\nThe brain needs silence like the body needs rest.\nYou heard that on a podcast.\nBut it's true.\n\n  [1] Bed.", n:{'1':'end'}},
+  end: { t: "9:00 PM. In bed. That's not sad.\nThat's optimised. (You keep telling yourself.)\nNatalie's already reading.\nYou set the alarm.\n\"Night.\"\n\"Night.\"\n\nAnother day done. Not perfect.\nBut done. And that counts.\n\n  ACHIEVEMENT: \"System Shutdown (Clean)\"\n  Type anything to exit.", end:true}
+}}
+];
+
+// ═══════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════
+let cwd = '/home/paul';
+let hist = [];
+let histIdx = 0;
+let inAdv = false;
+let advState = null;
+let advMenu = false;
+let currentAdv = null;
+let locked = false;
+
+const outputEl = document.getElementById('output');
+const cmdEl = document.getElementById('cmd');
+const promptEl = document.getElementById('prompt');
+
+// ═══════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════
+function print(t) { outputEl.appendChild(document.createTextNode(t + '\n')); scroll(); }
+function printBlock(t) { outputEl.appendChild(document.createTextNode(t + '\n\n')); scroll(); }
+function scroll() { outputEl.scrollTop = outputEl.scrollHeight; }
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
+function promptText() { return 'paul@harvey:' + cwd.replace('/home/paul', '~') + '$ '; }
+
+function sliderColor(v) {
+  if (v <= 3) return 'var(--rose)';
+  if (v <= 5) return 'var(--amber)';
+  if (v <= 7) return 'var(--green)';
+  return 'var(--cyan)';
+}
+
+// ═══════════════════════════════════════
+// FILE SYSTEM OPERATIONS
+// ═══════════════════════════════════════
+function resolve(name) {
+  if (!name) return null;
+  if (name.startsWith('/')) return name;
+  if (name === '~') return '/home/paul';
+  if (name.startsWith('~/')) return '/home/paul/' + name.slice(2);
+  return cwd + '/' + name.replace(/\/+$/, '');
+}
+
+function doLs(args) {
+  const showHidden = args.includes('-a') || args.includes('-la') || args.includes('-al');
+  const dir = DIRS[cwd];
+  if (!dir) return 'ls: cannot access directory';
+  let items = [];
+  if (showHidden) items.push('.', '..', ...dir.hidden.map(h => h + '/'));
+  items.push(...dir.files, ...dir.dirs.map(d => d + '/'));
+  if (!items.length) return '(empty)';
+  // Format in columns
+  const maxLen = Math.max(...items.map(i => i.length)) + 2;
+  const cols = Math.max(1, Math.floor(60 / maxLen));
+  let out = '';
+  items.forEach((item, i) => {
+    out += item.padEnd(maxLen);
+    if ((i + 1) % cols === 0) out += '\n';
+  });
+  return out.trimEnd();
+}
+
+function doCd(target) {
+  if (!target || target === '~') { cwd = '/home/paul'; return ''; }
+  if (target === '..') {
+    const parts = cwd.split('/');
+    if (parts.length > 3) { parts.pop(); cwd = parts.join('/'); }
+    return '';
+  }
+  if (target === '.') return '';
+  const full = resolve(target);
+  if (DIRS[full]) { cwd = full; return ''; }
+  // Check if it's a file
+  if (FILES[full] || FILES[cwd + '/' + target]) return 'cd: ' + target + ': Not a directory';
+  return 'cd: ' + target + ': No such directory';
+}
+
+function doCat(name) {
+  if (!name) return 'Usage: cat <filename>';
+  let path = resolve(name);
+  if (FILES[path]) return FILES[path];
+  // Try without full path
+  path = cwd + '/' + name;
+  if (FILES[path]) return FILES[path];
+  if (DIRS[path] || DIRS[resolve(name)]) return 'cat: ' + name + ': Is a directory. Try ls or cd.';
+  return 'cat: ' + name + ': No such file';
+}
+
+// ═══════════════════════════════════════
+// SPECIAL OUTPUTS
+// ═══════════════════════════════════════
+function helpText() {
+  return `AVAILABLE COMMANDS:
+  ls [flags]    List files (-a for hidden)
+  cd <dir>      Change directory
+  cat <file>    Read a file
+  pwd           Where am I?
+  whoami        The short version
+  clear         Clean slate
+  quote         Random Stoic wisdom
+  dad           A bad joke. You're welcome.
+  insult        Self-deprecating honesty
+  neofetch      System specs
+  ascii          Random ASCII art
+  hack          [CLASSIFIED]
+  matrix        Take the red pill
+  adventure     20 adventures to choose from
+  theme <name>  Change colour (green/amber/cyan)
+  history       What you've typed
+  help          This. Obviously.
+
+Start with 'ls' and explore. There might
+be hidden files. Use 'cat' to read them.`;
+}
+
+function whoamiText() {
+  return `Paul Harvey
+-----------
+41-year-old British bloke from Guildford.
+Dad. Husband. BJJ practitioner. Builder of things.
+Stoic philosophy on skin. Self-deprecating humor in soul.
+Runs a TikTok Shop department, which requires telling
+people that with a straight face.
+
+Previously: Agency founder.
+Currently: Corporate survivor.
+Perpetually: Work in progress.
+
+Favourite dinosaur: Velociraptor. Obviously.`;
+}
+
+function neofetchText() {
+  return `
+    ████████████         paul@harvey-systems
+  ██            ██       ──────────────────
+ ██   ████████   ██      OS:       Harvey OS v2.0 "Still Standing"
+██   ██      ██   ██     Host:     Guildford, Surrey, UK
+██   ██  ██  ██   ██     Kernel:   Gen-X / Millennial Hybrid
+██   ██      ██   ██     Uptime:   41 years
+ ██   ████████   ██      Shell:    /bin/sarcasm
+  ██            ██       Terminal: CRT-9000
+    ████████████         CPU:      Caffeine-Powered (4 cores)
+                         Memory:   Selective (mostly 90s)
+                         Disk:     Full (mostly opinions)
+                         BJJ:      Still turning up
+                         Tea:      Yorkshire Gold
+                         Kids:     2 (Troll & Terror)
+                         Theme:    ${document.body.dataset.theme}`;
+}
+
+function quoteText() {
+  const q = pick(STOIC_QUOTES);
+  return `"${q.q}"\n  — ${q.a}\n\n  ${q.c}`;
+}
+
+// ═══════════════════════════════════════
+// COMMAND PROCESSOR
+// ═══════════════════════════════════════
+function processCommand(input) {
+  const parts = input.trim().split(/\s+/);
+  const cmd = parts[0].toLowerCase();
+  const args = parts.slice(1);
+  const argStr = args.join(' ');
+
+  switch (cmd) {
+    case 'help': case '?': return helpText();
+    case 'ls': case 'dir': return doLs(args);
+    case 'cd': return doCd(args[0]);
+    case 'cat': case 'read': case 'type': case 'less': case 'more': return doCat(args[0]);
+    case 'pwd': return cwd;
+    case 'whoami': return whoamiText();
+    case 'clear': case 'cls': outputEl.textContent = ''; return '';
+    case 'quote': case 'fortune': return quoteText();
+    case 'dad': return pick(DAD_JOKES);
+    case 'insult': return pick(INSULTS);
+    case 'neofetch': return neofetchText();
+    case 'ascii': return pick(ASCII_ART);
+    case 'date': return new Date().toString();
+    case 'history': return hist.map((h, i) => ` ${(i+1).toString().padStart(3)}  ${h}`).join('\n') || '(empty)';
+    case 'theme': return setTheme(args[0]);
+    case 'hack': runHack(); return null;
+    case 'matrix': runMatrix(); return null;
+    case 'adventure': case 'play': startAdventure(args); return null;
+
+    // Easter eggs
+    case 'sudo':
+      if (argStr === 'make me a sandwich') return 'OK.';
+      return "Nice try. You don't have root here.\nThis is my terminal.";
+    case 'rm':
+      if (input.includes('-rf')) return "You absolute weapon. No.";
+      return 'rm: permission denied. And frankly, rude.';
+    case 'exit': case 'quit': case 'logout':
+      return "Where exactly do you think you're going?\nThis is a static HTML file. There is no escape.\n\n(Close the tab. I won't judge. Much.)";
+    case 'vim': case 'vi':
+      return "You've entered vim. Good luck getting out.\nPress Ctrl+C and pray.\n\n(Just kidding. You're still here.)";
+    case 'emacs':
+      return "I see you've chosen violence.";
+    case 'make':
+      if (argStr.includes('sandwich')) return "What? Make it yourself.";
+      return 'make: nothing to make. Story of my life.';
+    case 'xyzzy':
+      return 'Nothing happens.\n(But you get a point for knowing the reference.)';
+    case 'iddqd':
+      return "GOD MODE ACTIVATED.\nYou are now invulnerable to criticism.\n(Duration: 0.3 seconds)";
+    case 'idkfa':
+      return "ALL WEAPONS UNLOCKED:\n  - Sarcasm\n  - Dad jokes\n  - Passive aggression\n  - A very sharp look";
+    case 'hello': case 'hi': case 'hey':
+      return "Hello, World.\nOriginal.";
+    case '42':
+      return "The Answer to the Ultimate Question of Life,\nthe Universe, and Everything.\n\nDouglas Adams was right about everything\nexcept the bit about digital watches.";
+    case 'nope':
+      return "Valid response to most things.";
+    case 'ping':
+      return "PONG.\n(That's how it works, right?)";
+    case 'traceroute':
+      return "1  router.home    1ms\n2  isp.hell       247ms\n3  the.void        ∞\n\nRequest timed out. Like my patience.";
+    case 'man':
+      return "Mate, this isn't actually Unix.\nIt's an HTML file pretending to be a terminal.\n\nTry 'help' instead. Less pretentious.";
+    case 'curl': case 'wget':
+      return "There's no internet here.\nYou're in a self-contained universe of\none man's opinions. Lucky you.";
+    case 'node': case 'python': case 'python3':
+      return "This is not that kind of terminal.\nBut I appreciate the ambition.";
+    case 'git':
+      return "git: no repository found.\n\nMuch like my life — no clear version history\nand too many uncommitted changes.";
+    case 'paul': case 'harvey':
+      return "Yes?";
+    case 'troll':
+      return "She's at school. Hopefully.";
+    case 'terror':
+      return "Last seen hiding something.\nWhat she was hiding: unknown.\nConcern level: moderate.";
+    case 'natalie':
+      return "Currently being more productive than you.\nAs always.";
+    case 'raoul':
+      return "Raoul is on the Mac Mini. Probably building\nsomething while I do nothing useful here.\n\nType 'cat builds/raoul.txt' for the full story.";
+    case 'tea':
+      return "Yorkshire Gold. Strong.\nCorrect amount of milk.\n\n*sips*\n\nRight. Back to it.";
+    case 'beer':
+      return "It's " + new Date().getHours() + ":00.\n" + (new Date().getHours() >= 17 ? "Acceptable." : "Too early. Even for me.");
+    case 'love':
+      return "See: family/\n\nThat's the whole answer.";
+    default:
+      return `Command not found: ${cmd}\nType 'help' if you're lost. No judgment.\n(OK, a little judgment.)`;
+  }
+}
+
+// ═══════════════════════════════════════
+// THEME
+// ═══════════════════════════════════════
+function setTheme(name) {
+  if (!name) return 'Usage: theme <green|amber|cyan>';
+  name = name.toLowerCase();
+  if (!['green', 'amber', 'cyan'].includes(name)) return 'Available themes: green, amber, cyan';
+  document.body.dataset.theme = name;
+  localStorage.setItem('harvey_theme', name);
+  return 'Theme set to ' + name + '.';
+}
+
+// ═══════════════════════════════════════
+// HACK SEQUENCE
+// ═══════════════════════════════════════
+async function runHack() {
+  locked = true;
+  cmdEl.disabled = true;
+  const lines = [
+    ['INITIATING HACK SEQUENCE...', 700],
+    ['', 200],
+    ['> nmap -sV 192.168.1.0/24', 500],
+    ['Scanning network...', 1200],
+    ['Host: 192.168.1.1    ROUTER      [OPEN]', 150],
+    ['Host: 192.168.1.15   SMART_TV    [OPEN]', 150],
+    ['Host: 192.168.1.23   PRINTER     [OPEN] (always open. never works.)', 150],
+    ['Host: 192.168.1.42   RAOUL       [OPEN] (Mac Mini)', 150],
+    ['Host: 192.168.1.95   HINDSIGHT   [OPEN] (knows too much)', 400],
+    ['', 300],
+    ['> connect 192.168.1.42', 600],
+    ['Connecting to RAOUL...', 800],
+    ['Bypassing firewall... [████████████████] DONE', 700],
+    ['Cracking password... ************', 1000],
+    ['Password: i_am_not_a_real_boy_42', 500],
+    ['', 400],
+    ['ACCESS GRANTED.', 800],
+    ['', 400],
+    ['...', 800],
+    ['', 300],
+    ['Just kidding.', 400],
+    ["This is a static HTML file on a desktop.", 200],
+    ["You can't actually hack anything from here.", 200],
+    ['', 150],
+    ['But I respect the commitment. Very Mr. Robot.', 0]
+  ];
+  for (const [text, delay] of lines) {
+    print(text);
+    if (delay) await sleep(delay);
+  }
+  print('');
+  locked = false;
+  cmdEl.disabled = false;
+  showPrompt();
+  cmdEl.focus();
+}
+
+// ═══════════════════════════════════════
+// MATRIX RAIN
+// ═══════════════════════════════════════
+function runMatrix() {
+  print('"Wake up, Paul..."\n\nThe Matrix has you.\n');
+  const canvas = document.createElement('canvas');
+  canvas.className = 'matrix-canvas';
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  document.body.appendChild(canvas);
+  const ctx = canvas.getContext('2d');
+  const cols = Math.floor(canvas.width / 18);
+  const drops = Array.from({ length: cols }, () => Math.random() * -20 | 0);
+  const chars = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789PAULHARVEY';
+  const fg = getComputedStyle(document.documentElement).getPropertyValue('--fg').trim();
+  let frames = 0;
+  function draw() {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.06)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = fg;
+    ctx.font = '16px VT323, monospace';
+    for (let i = 0; i < drops.length; i++) {
+      const ch = chars[Math.random() * chars.length | 0];
+      ctx.fillText(ch, i * 18, drops[i] * 18);
+      if (drops[i] * 18 > canvas.height && Math.random() > 0.975) drops[i] = 0;
+      drops[i]++;
+    }
+    frames++;
+    if (frames < 180) {
+      requestAnimationFrame(draw);
+    } else {
+      canvas.style.transition = 'opacity 1s';
+      canvas.style.opacity = '0';
+      setTimeout(() => canvas.remove(), 1000);
+      print("(It's actually just an HTML file.\n But let's not ruin the moment.)\n");
+      showPrompt();
+    }
+  }
+  requestAnimationFrame(draw);
+}
+
+// ═══════════════════════════════════════
+// ADVENTURE GAME
+// ═══════════════════════════════════════
+function startAdventure(args) {
+  if (args && args[0] === 'random') {
+    currentAdv = Math.floor(Math.random() * ADVENTURES.length);
+    inAdv = true; advMenu = false; advState = 'start';
+    print('\n══ ' + ADVENTURES[currentAdv].title.toUpperCase() + ' ══\n');
+    print(ADVENTURES[currentAdv].states.start.t); print('');
+    return;
+  }
+  if (args && args[0] && !isNaN(args[0])) {
+    const num = parseInt(args[0]);
+    if (num >= 1 && num <= ADVENTURES.length) {
+      currentAdv = num - 1;
+      inAdv = true; advMenu = false; advState = 'start';
+      print('\n══ ' + ADVENTURES[currentAdv].title.toUpperCase() + ' ══\n');
+      print(ADVENTURES[currentAdv].states.start.t); print('');
+      return;
+    }
+  }
+  inAdv = true; advMenu = true;
+  let m = '\n══ ADVENTURES ══\n';
+  ADVENTURES.forEach((a, i) => { m += '\n  [' + String(i+1).padStart(2) + '] ' + a.title; });
+  m += '\n\nType a number to play, or \'random\'.\nType \'back\' to exit.\n';
+  print(m);
+}
+
+function handleAdventure(input) {
+  if (advMenu) {
+    if (input === 'back' || input === 'quit' || input === 'exit') { inAdv = false; advMenu = false; return; }
+    if (input === 'random') { startAdventure(['random']); return; }
+    const num = parseInt(input);
+    if (num >= 1 && num <= ADVENTURES.length) { startAdventure([String(num)]); return; }
+    print('Pick 1-' + ADVENTURES.length + ', \'random\', or \'back\'.'); return;
+  }
+  const adv = ADVENTURES[currentAdv];
+  const state = adv.states[advState];
+  if (!state) { inAdv = false; return; }
+  if (state.end) { inAdv = false; advState = null; currentAdv = null; return; }
+  const next = state.n[input];
+  if (next && adv.states[next]) {
+    advState = next;
+    print('\n' + adv.states[next].t + '\n');
+    if (adv.states[next].end) { inAdv = false; advState = null; currentAdv = null; }
+  } else { print('Pick a number from the options above.'); }
+}
+
+// ═══════════════════════════════════════
+// KONAMI CODE
+// ═══════════════════════════════════════
+const KONAMI = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
+let konamiPos = 0;
+
+function checkKonami(e) {
+  if (e.key === KONAMI[konamiPos]) {
+    konamiPos++;
+    if (konamiPos === KONAMI.length) {
+      konamiPos = 0;
+      triggerKonami();
+    }
+  } else {
+    konamiPos = 0;
+  }
+}
+
+function triggerKonami() {
+  document.body.style.animation = 'konamiFlash 0.4s';
+  setTimeout(() => document.body.style.animation = '', 500);
+  print(`
+▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+▓                                     ▓
+▓   ↑↑↓↓←→←→BA                       ▓
+▓                                     ▓
+▓   CHEAT MODE ACTIVATED              ▓
+▓                                     ▓
+▓   +30 LIVES                         ▓
+▓   INFINITE AMMO                     ▓
+▓   ALL WEAPONS UNLOCKED              ▓
+▓   GOD MODE: ON                      ▓
+▓   DK MODE: ON                       ▓
+▓                                     ▓
+▓   Just kidding.                     ▓
+▓   You're still in a terminal.       ▓
+▓   But I respect the effort.         ▓
+▓                                     ▓
+▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+`);
+  showPrompt();
+}
+
+// ═══════════════════════════════════════
+// INPUT HANDLING
+// ═══════════════════════════════════════
+function showPrompt() {
+  promptEl.textContent = promptText();
+}
+
+function handleInput(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    if (locked) return;
+    const val = cmdEl.value;
+    cmdEl.value = '';
+
+    if (inAdv) {
+      print(promptText() + val);
+      handleAdventure(val.trim());
+      if (!inAdv) showPrompt();
+      return;
+    }
+
+    print(promptText() + val);
+    if (val.trim()) {
+      hist.push(val.trim());
+      histIdx = hist.length;
+      const result = processCommand(val);
+      if (result !== null && result !== undefined && result !== '') {
+        print(result);
+        print('');
+      }
+    }
+    showPrompt();
+
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (histIdx > 0) { histIdx--; cmdEl.value = hist[histIdx]; }
+  } else if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (histIdx < hist.length - 1) { histIdx++; cmdEl.value = hist[histIdx]; }
+    else { histIdx = hist.length; cmdEl.value = ''; }
+  }
+}
+
+cmdEl.addEventListener('keydown', handleInput);
+document.addEventListener('keydown', checkKonami);
+document.querySelector('.terminal').addEventListener('click', () => cmdEl.focus());
+
+// ═══════════════════════════════════════
+// BOOT SEQUENCE
+// ═══════════════════════════════════════
+async function boot() {
+  const saved = localStorage.getItem('harvey_theme');
+  if (saved) document.body.dataset.theme = saved;
+
+  const isReturn = localStorage.getItem('harvey_visited');
+
+  const checks = [
+    ['', 50],
+    ['HARVEY SYSTEMS BIOS v4.1.85', 80],
+    ['(c) 1985-2026 Guildford Computing Ltd.', 60],
+    ['', 300],
+    ['Checking memory......... 41 years OK', 120],
+    ['Loading personality...... LOADED', 100],
+    ['Calibrating sarcasm..... NOMINAL', 100],
+    ['Checking ego............ NOT FOUND', 100],
+    ['Loading 90s references.. EXCESSIVE', 100],
+    ['Brewing tea............. YORKSHIRE GOLD', 150],
+  ];
+
+  for (const [text, delay] of checks) {
+    print(text);
+    await sleep(delay);
+  }
+
+  await sleep(500);
+
+  const now = new Date().toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  print('');
+  print('══════════════════════════════════════════');
+  print(' HARVEY OS v2.0 — "Still Standing"');
+  print(' ' + (isReturn ? 'Last' : 'First') + ' login: ' + now);
+  print('══════════════════════════════════════════');
+  print('');
+
+  if (isReturn) {
+    print(" You're back. I'd say I missed you");
+    print(" but I'm a static HTML file.");
+  } else {
+    print(' Welcome.');
+    print(" Type 'help' to pretend you know");
+    print(" what you're doing.");
+  }
+  print('');
+
+  localStorage.setItem('harvey_visited', 'true');
+  showPrompt();
+  cmdEl.disabled = false;
+  cmdEl.focus();
+}
+
+boot();
+</script>
+</body>
+</html>
